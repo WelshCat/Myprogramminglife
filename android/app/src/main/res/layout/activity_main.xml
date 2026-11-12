@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  버튼의 android:tag 가 TV로 보낼 키 코드다.
-  "repeat:KEY_..." 형식이면 누르고 있는 동안 반복 전송한다.
+  버튼의 android:tag 는 동작 이름이다 (MainActivity.Action 참고).
+  "repeat:" 로 시작하면 누르고 있는 동안 반복한다.
+  연결된 기기(Google TV / 크롬캐스트)가 지원하지 않는 버튼은 자동으로 숨겨진다.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="@color/bg">
+    android:background="@color/bg"
+    android:fillViewport="true">
 
     <LinearLayout
         android:id="@+id/root"
@@ -35,17 +36,30 @@
                 android:background="@drawable/status_dot"
                 android:backgroundTint="@color/muted" />
 
-            <TextView
-                android:id="@+id/statusText"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="TV를 설정하세요"
-                android:textColor="@color/muted"
-                android:textSize="13sp" />
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/statusText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="크롬캐스트를 선택하세요"
+                    android:textColor="@color/text"
+                    android:textSize="14sp" />
+                <TextView
+                    android:id="@+id/subText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
             <ImageButton
                 android:id="@+id/settingsButton"
@@ -53,7 +67,7 @@
                 android:layout_height="48dp"
                 android:layout_marginEnd="8dp"
                 android:background="@drawable/circle_press_bg"
-                android:contentDescription="설정"
+                android:contentDescription="기기 선택 및 설정"
                 android:src="@drawable/ic_settings"
                 android:tint="@color/muted" />
 
@@ -61,28 +75,34 @@
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:background="@drawable/power_bg"
-                android:contentDescription="전원 끄기"
+                android:contentDescription="전원"
                 android:src="@drawable/ic_power"
-                android:tag="KEY_POWEROFF"
+                android:tag="POWER"
                 android:tint="#FFFFFF" />
         </LinearLayout>
 
         <LinearLayout style="@style/Row">
-            <Button style="@style/RemoteButton" android:tag="KEY_SOURCE" android:text="외부입력" />
-            <Button style="@style/RemoteButton" android:tag="KEY_HDMI" android:text="HDMI" />
-            <Button style="@style/RemoteButton" android:tag="KEY_TV" android:text="TV" />
-            <Button style="@style/RemoteButton" android:tag="KEY_CONTENTS" android:text="스마트허브" android:textSize="13sp" />
+            <Button style="@style/RemoteButton" android:tag="WAKE" android:text="TV 켜기" />
+            <Button style="@style/RemoteButton" android:tag="INPUT" android:text="입력 선택" />
+            <Button style="@style/RemoteButton" android:tag="STOP_APP" android:text="캐스트 종료" />
+            <Button style="@style/RemoteButton" android:tag="SETTINGS" android:text="설정" />
         </LinearLayout>
 
-        <LinearLayout style="@style/Row">
-            <Button style="@style/RemoteButton" android:tag="KEY_MENU" android:text="메뉴" />
-            <Button style="@style/RemoteButton" android:tag="KEY_TOOLS" android:text="도구" />
-            <Button style="@style/RemoteButton" android:tag="KEY_INFO" android:text="정보" />
-            <Button style="@style/RemoteButton" android:tag="KEY_GUIDE" android:text="가이드" />
-        </LinearLayout>
+        <!-- 지금 재생 중 (크롬캐스트) -->
+        <TextView
+            android:id="@+id/nowPlaying"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="5dp"
+            android:background="@drawable/panel_bg"
+            android:padding="14dp"
+            android:textColor="@color/text"
+            android:textSize="14sp"
+            android:visibility="gone" />
 
-        <!-- 방향키 -->
+        <!-- 방향키 (Google TV) -->
         <FrameLayout
+            android:id="@+id/dpad"
             android:layout_width="240dp"
             android:layout_height="240dp"
             android:layout_gravity="center_horizontal"
@@ -90,13 +110,13 @@
             android:background="@drawable/dpad_bg">
 
             <ImageButton style="@style/ArrowButton" android:layout_gravity="top|center_horizontal"
-                android:contentDescription="위" android:src="@drawable/ic_up" android:tag="repeat:KEY_UP" />
+                android:contentDescription="위" android:src="@drawable/ic_up" android:tag="repeat:UP" />
             <ImageButton style="@style/ArrowButton" android:layout_gravity="bottom|center_horizontal"
-                android:contentDescription="아래" android:src="@drawable/ic_down" android:tag="repeat:KEY_DOWN" />
+                android:contentDescription="아래" android:src="@drawable/ic_down" android:tag="repeat:DOWN" />
             <ImageButton style="@style/ArrowButton" android:layout_gravity="start|center_vertical"
-                android:contentDescription="왼쪽" android:src="@drawable/ic_left" android:tag="repeat:KEY_LEFT" />
+                android:contentDescription="왼쪽" android:src="@drawable/ic_left" android:tag="repeat:LEFT" />
             <ImageButton style="@style/ArrowButton" android:layout_gravity="end|center_vertical"
-                android:contentDescription="오른쪽" android:src="@drawable/ic_right" android:tag="repeat:KEY_RIGHT" />
+                android:contentDescription="오른쪽" android:src="@drawable/ic_right" android:tag="repeat:RIGHT" />
 
             <Button
                 android:layout_width="96dp"
@@ -104,7 +124,7 @@
                 android:layout_gravity="center"
                 android:background="@drawable/ok_bg"
                 android:stateListAnimator="@null"
-                android:tag="KEY_ENTER"
+                android:tag="OK"
                 android:text="확인"
                 android:textColor="@color/text"
                 android:textSize="18sp"
@@ -112,158 +132,54 @@
         </FrameLayout>
 
         <LinearLayout style="@style/Row">
-            <Button style="@style/RemoteButton" android:tag="KEY_RETURN" android:text="↩ 이전" />
-            <Button style="@style/RemoteButton" android:tag="KEY_EXIT" android:text="나가기" />
+            <Button style="@style/RemoteButton" android:tag="BACK" android:text="↩ 뒤로" />
+            <Button style="@style/RemoteButton" android:tag="HOME" android:text="홈" />
         </LinearLayout>
 
-        <!-- 음량 / 채널 -->
+        <!-- 음량 -->
         <LinearLayout
             style="@style/Row"
-            android:layout_marginTop="4dp">
-
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical">
+            <Button style="@style/RemoteButton" android:layout_height="64dp" android:contentDescription="음량 내리기"
+                android:tag="repeat:VOL_DOWN" android:text="−" android:textSize="26sp" />
             <LinearLayout
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="64dp"
                 android:layout_margin="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/panel_bg"
                 android:gravity="center"
                 android:orientation="vertical">
-                <Button style="@style/PillButton" android:contentDescription="음량 올리기" android:tag="repeat:KEY_VOLUP" android:text="+" />
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:text="음량" android:textColor="@color/muted" android:textSize="12sp" />
-                <Button style="@style/PillButton" android:contentDescription="음량 내리기" android:tag="repeat:KEY_VOLDOWN" android:text="−" />
+                <TextView android:id="@+id/volumeText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="–" android:textColor="@color/text" android:textSize="16sp" android:textStyle="bold" />
             </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-                <LinearLayout style="@style/Row"><Button style="@style/RemoteButton" android:tag="KEY_MUTE" android:text="음소거" /></LinearLayout>
-                <LinearLayout style="@style/Row"><Button style="@style/RemoteButton" android:tag="KEY_CH_LIST" android:text="채널목록" /></LinearLayout>
-                <LinearLayout style="@style/Row"><Button style="@style/RemoteButton" android:tag="KEY_PRECH" android:text="이전채널" /></LinearLayout>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_margin="5dp"
-                android:layout_weight="1"
-                android:background="@drawable/panel_bg"
-                android:gravity="center"
-                android:orientation="vertical">
-                <ImageButton android:layout_width="match_parent" android:layout_height="64dp"
-                    android:background="@drawable/pill_btn_bg" android:contentDescription="채널 올리기"
-                    android:src="@drawable/ic_up" android:tag="repeat:KEY_CHUP" android:tint="@color/text" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="채널" android:textColor="@color/muted" android:textSize="12sp" />
-                <ImageButton android:layout_width="match_parent" android:layout_height="64dp"
-                    android:background="@drawable/pill_btn_bg" android:contentDescription="채널 내리기"
-                    android:src="@drawable/ic_down" android:tag="repeat:KEY_CHDOWN" android:tint="@color/text" />
-            </LinearLayout>
+            <Button style="@style/RemoteButton" android:layout_height="64dp" android:contentDescription="음량 올리기"
+                android:tag="repeat:VOL_UP" android:text="+" android:textSize="26sp" />
         </LinearLayout>
 
-        <!-- 컬러 버튼 -->
-        <LinearLayout style="@style/Row" android:layout_marginTop="6dp">
-            <Button style="@style/RemoteButton.Color" android:background="@drawable/color_red" android:contentDescription="빨강 A" android:tag="KEY_RED" />
-            <Button style="@style/RemoteButton.Color" android:background="@drawable/color_green" android:contentDescription="초록 B" android:tag="KEY_GREEN" />
-            <Button style="@style/RemoteButton.Color" android:background="@drawable/color_yellow" android:contentDescription="노랑 C" android:tag="KEY_YELLOW" />
-            <Button style="@style/RemoteButton.Color" android:background="@drawable/color_blue" android:contentDescription="파랑 D" android:tag="KEY_CYAN" />
-        </LinearLayout>
-
-        <!-- 재생 -->
         <LinearLayout style="@style/Row">
-            <Button style="@style/RemoteButton" android:contentDescription="되감기" android:tag="KEY_REWIND" android:text="◀◀" />
-            <Button style="@style/RemoteButton" android:contentDescription="재생" android:tag="KEY_PLAY" android:text="▶" />
-            <Button style="@style/RemoteButton" android:contentDescription="일시정지" android:tag="KEY_PAUSE" android:text="❚❚" />
-            <Button style="@style/RemoteButton" android:contentDescription="정지" android:tag="KEY_STOP" android:text="■" />
-            <Button style="@style/RemoteButton" android:contentDescription="빨리감기" android:tag="KEY_FF" android:text="▶▶" />
+            <Button style="@style/RemoteButton" android:tag="MUTE" android:text="음소거" />
         </LinearLayout>
 
-        <!-- 숫자 패드 (접기/펼치기) -->
-        <Button
-            android:id="@+id/toggleNumpad"
-            style="@style/RemoteButton.Small"
-            android:layout_width="match_parent"
-            android:layout_weight="0"
-            android:background="@drawable/panel_bg"
-            android:gravity="start|center_vertical"
-            android:paddingHorizontal="16dp"
-            android:text="▸ 숫자 패드" />
+        <!-- 재생 제어 -->
+        <LinearLayout style="@style/Row" android:layout_marginTop="6dp">
+            <Button style="@style/RemoteButton" android:contentDescription="뒤로 감기" android:tag="REWIND" android:text="◀◀" />
+            <Button style="@style/RemoteButton" android:contentDescription="재생/일시정지" android:tag="PLAY_PAUSE" android:text="▶ ❚❚" />
+            <Button style="@style/RemoteButton" android:contentDescription="정지" android:tag="STOP" android:text="■" />
+            <Button style="@style/RemoteButton" android:contentDescription="앞으로 감기" android:tag="FORWARD" android:text="▶▶" />
+        </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/numpad"
+        <TextView
+            android:id="@+id/hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-            <LinearLayout style="@style/Row">
-                <Button style="@style/RemoteButton" android:tag="KEY_1" android:text="1" />
-                <Button style="@style/RemoteButton" android:tag="KEY_2" android:text="2" />
-                <Button style="@style/RemoteButton" android:tag="KEY_3" android:text="3" />
-            </LinearLayout>
-            <LinearLayout style="@style/Row">
-                <Button style="@style/RemoteButton" android:tag="KEY_4" android:text="4" />
-                <Button style="@style/RemoteButton" android:tag="KEY_5" android:text="5" />
-                <Button style="@style/RemoteButton" android:tag="KEY_6" android:text="6" />
-            </LinearLayout>
-            <LinearLayout style="@style/Row">
-                <Button style="@style/RemoteButton" android:tag="KEY_7" android:text="7" />
-                <Button style="@style/RemoteButton" android:tag="KEY_8" android:text="8" />
-                <Button style="@style/RemoteButton" android:tag="KEY_9" android:text="9" />
-            </LinearLayout>
-            <LinearLayout style="@style/Row">
-                <Button style="@style/RemoteButton" android:tag="KEY_PLUS100" android:text="-" />
-                <Button style="@style/RemoteButton" android:tag="KEY_0" android:text="0" />
-                <Button style="@style/RemoteButton" android:tag="KEY_ENTER" android:text="확인" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- 기타 키 (접기/펼치기) -->
-        <Button
-            android:id="@+id/toggleExtra"
-            style="@style/RemoteButton.Small"
-            android:layout_width="match_parent"
-            android:layout_weight="0"
-            android:background="@drawable/panel_bg"
-            android:gravity="start|center_vertical"
-            android:paddingHorizontal="16dp"
-            android:text="▸ 기타 키" />
-
-        <LinearLayout
-            android:id="@+id/extra"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-            <LinearLayout style="@style/Row">
-                <Button style="@style/RemoteButton.Small" android:tag="KEY_PICTURE_SIZE" android:text="화면 크기" />
-                <Button style="@style/RemoteButton.Small" android:tag="KEY_PMODE" android:text="화면 모드" />
-                <Button style="@style/RemoteButton.Small" android:tag="KEY_SUB_TITLE" android:text="자막" />
-            </LinearLayout>
-            <LinearLayout style="@style/Row">
-                <Button style="@style/RemoteButton.Small" android:tag="KEY_AD" android:text="음성 해설" />
-                <Button style="@style/RemoteButton.Small" android:tag="KEY_SLEEP" android:text="취침 예약" />
-                <Button style="@style/RemoteButton.Small" android:tag="KEY_ESAVING" android:text="절전" />
-            </LinearLayout>
-            <LinearLayout style="@style/Row" android:gravity="center_vertical">
-                <EditText
-                    android:id="@+id/customKey"
-                    android:layout_width="0dp"
-                    android:layout_height="44dp"
-                    android:layout_margin="5dp"
-                    android:layout_weight="2"
-                    android:background="@drawable/btn_bg"
-                    android:hint="KEY_ 코드 직접 입력"
-                    android:imeOptions="actionSend"
-                    android:inputType="textCapCharacters|textNoSuggestions"
-                    android:paddingHorizontal="12dp"
-                    android:textColor="@color/text"
-                    android:textColorHint="@color/muted"
-                    android:textSize="14sp" />
-                <Button android:id="@+id/sendCustom" style="@style/RemoteButton.Small" android:text="보내기" />
-            </LinearLayout>
-        </LinearLayout>
+            android:layout_marginHorizontal="5dp"
+            android:layout_marginTop="14dp"
+            android:lineSpacingExtra="3dp"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>

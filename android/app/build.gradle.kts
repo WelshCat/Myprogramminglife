@@ -11,8 +11,8 @@ android {
         applicationId = "io.github.welshcat.tvremote"
         minSdk = 26          // Android 8.0 이상
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
     }
 
     buildTypes {
