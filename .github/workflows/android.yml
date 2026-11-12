@@ -43,3 +43,13 @@ jobs:
           name: lint-report
           path: android/app/build/reports/lint-results-*.html
           if-no-files-found: ignore
+
+      # 네트워크가 막힌 환경에서도 로그로 APK를 받을 수 있도록 base64로 출력 (sha256으로 검증)
+      - name: Print release APK as base64
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          ls -l "$APK"
+          echo "APK_SHA256=$(sha256sum "$APK" | cut -d' ' -f1)"
+          echo "-----BEGIN APK-----"
+          base64 -w 100 "$APK"
+          echo "-----END APK-----"
