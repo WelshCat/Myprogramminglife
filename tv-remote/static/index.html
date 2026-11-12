@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#111317">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>TV 리모컨</title>
+<style>
+  :root {
+    --bg: #111317; --panel: #1b1e24; --btn: #262a32; --btn-press: #343a45;
+    --text: #e9ecf1; --muted: #8a919e; --accent: #4c8dff; --power: #e5484d;
+    --red: #e5484d; --green: #30a46c; --yellow: #f5d90a; --blue: #3e8ef7;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.3 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    display: flex; justify-content: center; user-select: none; -webkit-user-select: none;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  }
+  main { width: 100%; max-width: 380px; padding: 14px 0 24px; display: flex; flex-direction: column; gap: 14px; }
+  main > * { flex-shrink: 0; }
+  header { display: flex; align-items: center; justify-content: space-between; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--green); } .dot.err { background: var(--red); }
+  .row { display: grid; gap: 10px; }
+  .r2 { grid-template-columns: repeat(2, 1fr); }
+  .r3 { grid-template-columns: repeat(3, 1fr); }
+  .r4 { grid-template-columns: repeat(4, 1fr); }
+  .r5 { grid-template-columns: repeat(5, 1fr); }
+  button {
+    appearance: none; border: 0; border-radius: 14px; background: var(--btn); color: var(--text);
+    font: inherit; font-weight: 600; min-height: 48px; padding: 0 6px; white-space: nowrap; letter-spacing: -0.02em; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    transition: transform .06s, background .06s; touch-action: manipulation;
+  }
+  button:active, button.pressed { background: var(--btn-press); transform: scale(.96); }
+  button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .power { background: var(--power); color: #fff; width: 52px; min-height: 52px; border-radius: 50%; }
+  .small { min-height: 40px; font-size: 13px; color: var(--muted); }
+  .color { min-height: 22px; border-radius: 8px; }
+
+  /* 방향키 */
+  .dpad { position: relative; width: 240px; height: 240px; margin: 6px auto; border-radius: 50%; background: var(--panel); }
+  .dpad button { position: absolute; background: transparent; width: 80px; height: 80px; border-radius: 50%; color: var(--muted); }
+  .dpad button:active, .dpad button.pressed { background: var(--btn-press); color: var(--text); }
+  .dpad .up { top: 0; left: 80px; } .dpad .down { bottom: 0; left: 80px; }
+  .dpad .left { left: 0; top: 80px; } .dpad .right { right: 0; top: 80px; }
+  .dpad .ok { top: 72px; left: 72px; width: 96px; height: 96px; background: var(--btn); color: var(--text); font-size: 17px; }
+
+  /* 볼륨 / 채널 */
+  .rocker { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: stretch; }
+  .pill { display: flex; flex-direction: column; background: var(--panel); border-radius: 18px; overflow: hidden; }
+  .pill button { border-radius: 0; background: transparent; min-height: 58px; font-size: 22px; }
+  .pill span { text-align: center; font-size: 12px; color: var(--muted); }
+  .mid { display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+
+  details { background: var(--panel); border-radius: 16px; padding: 4px 12px; }
+  details[open] { padding-bottom: 12px; }
+  summary { cursor: pointer; padding: 10px 0; color: var(--muted); font-size: 14px; list-style: none; }
+  summary::before { content: "▸ "; } details[open] summary::before { content: "▾ "; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #2b2f38; color: var(--text); padding: 10px 14px; border-radius: 12px; font-size: 13px;
+    max-width: calc(100% - 32px); box-shadow: 0 6px 24px #0008; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">연결 확인 중…</span></div>
+    <button class="power" data-key="KEY_POWEROFF" aria-label="전원 끄기">
+      <svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
+    </button>
+  </header>
+
+  <div class="row r4">
+    <button data-key="KEY_SOURCE">외부입력</button>
+    <button data-key="KEY_HDMI">HDMI</button>
+    <button data-key="KEY_TV">TV</button>
+    <button data-key="KEY_CONTENTS" style="font-size:13px">스마트허브</button>
+  </div>
+
+  <div class="row r4">
+    <button data-key="KEY_MENU">메뉴</button>
+    <button data-key="KEY_TOOLS">도구</button>
+    <button data-key="KEY_INFO">정보</button>
+    <button data-key="KEY_GUIDE">가이드</button>
+  </div>
+
+  <div class="dpad">
+    <button class="up" data-key="KEY_UP" data-repeat aria-label="위"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+    <button class="left" data-key="KEY_LEFT" data-repeat aria-label="왼쪽"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+    <button class="ok" data-key="KEY_ENTER">확인</button>
+    <button class="right" data-key="KEY_RIGHT" data-repeat aria-label="오른쪽"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="down" data-key="KEY_DOWN" data-repeat aria-label="아래"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+  </div>
+
+  <div class="row r2">
+    <button data-key="KEY_RETURN">↩ 이전</button>
+    <button data-key="KEY_EXIT">나가기</button>
+  </div>
+
+  <div class="rocker">
+    <div class="pill">
+      <button data-key="KEY_VOLUP" data-repeat aria-label="볼륨 올리기">+</button>
+      <span>음량</span>
+      <button data-key="KEY_VOLDOWN" data-repeat aria-label="볼륨 내리기">−</button>
+    </div>
+    <div class="mid">
+      <button data-key="KEY_MUTE">음소거</button>
+      <button data-key="KEY_CH_LIST">채널목록</button>
+      <button data-key="KEY_PRECH">이전채널</button>
+    </div>
+    <div class="pill">
+      <button data-key="KEY_CHUP" data-repeat aria-label="채널 올리기">⌃</button>
+      <span>채널</span>
+      <button data-key="KEY_CHDOWN" data-repeat aria-label="채널 내리기">⌄</button>
+    </div>
+  </div>
+
+  <div class="row r4">
+    <button class="color" style="background:var(--red)" data-key="KEY_RED" aria-label="빨강 (A)"></button>
+    <button class="color" style="background:var(--green)" data-key="KEY_GREEN" aria-label="초록 (B)"></button>
+    <button class="color" style="background:var(--yellow)" data-key="KEY_YELLOW" aria-label="노랑 (C)"></button>
+    <button class="color" style="background:var(--blue)" data-key="KEY_CYAN" aria-label="파랑 (D)"></button>
+  </div>
+
+  <div class="row r5">
+    <button data-key="KEY_REWIND" aria-label="되감기">⏪︎</button>
+    <button data-key="KEY_PLAY" aria-label="재생">▶</button>
+    <button data-key="KEY_PAUSE" aria-label="일시정지">⏸︎</button>
+    <button data-key="KEY_STOP" aria-label="정지">⏹︎</button>
+    <button data-key="KEY_FF" aria-label="빨리감기">⏩︎</button>
+  </div>
+
+  <details>
+    <summary>숫자 패드</summary>
+    <div class="row r3" id="numpad"></div>
+  </details>
+
+  <details>
+    <summary>기타 키</summary>
+    <div class="row r3">
+      <button class="small" data-key="KEY_PICTURE_SIZE">화면 크기</button>
+      <button class="small" data-key="KEY_PMODE">화면 모드</button>
+      <button class="small" data-key="KEY_SUB_TITLE">자막</button>
+      <button class="small" data-key="KEY_AD">음성 해설</button>
+      <button class="small" data-key="KEY_SLEEP">취침 예약</button>
+      <button class="small" data-key="KEY_ESAVING">절전</button>
+    </div>
+    <div class="row r2" style="margin-top:10px">
+      <input id="custom" placeholder="KEY_ 코드 직접 입력" autocapitalize="characters"
+             style="background:var(--btn);border:0;border-radius:12px;color:var(--text);padding:0 12px;font:inherit;min-height:40px">
+      <button class="small" id="sendCustom">보내기</button>
+    </div>
+  </details>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  const dot = document.getElementById('dot');
+  const statusText = document.getElementById('statusText');
+  const toastEl = document.getElementById('toast');
+  let toastTimer;
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3500);
+  }
+  function setStatus(ok, text) {
+    dot.className = 'dot ' + (ok ? 'ok' : 'err');
+    statusText.textContent = text;
+  }
+
+  // 키 전송은 순서대로 하나씩 (TV가 동시 요청을 싫어함)
+  let queue = Promise.resolve();
+  function send(key) {
+    if (navigator.vibrate) navigator.vibrate(12);
+    queue = queue.then(async () => {
+      try {
+        const res = await fetch('api/key', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({key})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        setStatus(true, '연결됨');
+      } catch (e) {
+        setStatus(false, '오류');
+        toast(e.message === 'Failed to fetch' ? '리모컨 서버에 연결할 수 없습니다' : e.message);
+      }
+    });
+  }
+
+  // 숫자 패드
+  const numpad = document.getElementById('numpad');
+  [1,2,3,4,5,6,7,8,9,'-',0,'⌫'].forEach(n => {
+    const b = document.createElement('button');
+    b.textContent = n;
+    b.dataset.key = n === '-' ? 'KEY_PLUS100' : n === '⌫' ? 'KEY_PRECH' : 'KEY_' + n;
+    if (n === '⌫') { b.textContent = '이전'; b.className = 'small'; }
+    numpad.appendChild(b);
+  });
+
+  // 누르고 있으면 반복 (볼륨/채널/방향키)
+  document.querySelectorAll('[data-key]').forEach(btn => {
+    const key = btn.dataset.key;
+    if (!('repeat' in btn.dataset)) {
+      btn.addEventListener('click', () => send(key));
+      return;
+    }
+    let delay, interval;
+    const stop = () => { clearTimeout(delay); clearInterval(interval); btn.classList.remove('pressed'); };
+    btn.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      btn.classList.add('pressed');
+      send(key);
+      delay = setTimeout(() => { interval = setInterval(() => send(key), 180); }, 450);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+  });
+
+  const custom = document.getElementById('custom');
+  document.getElementById('sendCustom').addEventListener('click', () => {
+    const v = custom.value.trim().toUpperCase();
+    if (v) send(v.startsWith('KEY_') ? v : 'KEY_' + v);
+  });
+
+  // 키보드로도 조작 (PC에서 열었을 때)
+  const keymap = { ArrowUp:'KEY_UP', ArrowDown:'KEY_DOWN', ArrowLeft:'KEY_LEFT', ArrowRight:'KEY_RIGHT',
+    Enter:'KEY_ENTER', Backspace:'KEY_RETURN', Escape:'KEY_EXIT', '+':'KEY_VOLUP', '-':'KEY_VOLDOWN',
+    m:'KEY_MUTE', PageUp:'KEY_CHUP', PageDown:'KEY_CHDOWN' };
+  document.addEventListener('keydown', e => {
+    if (e.target === custom) return;
+    const k = keymap[e.key] || (/^[0-9]$/.test(e.key) ? 'KEY_' + e.key : null);
+    if (k) { e.preventDefault(); send(k); }
+  });
+
+  fetch('api/status').then(r => r.json())
+    .then(s => setStatus(true, 'TV ' + s.tv + (s.connected ? ' · 연결됨' : ' · 대기')))
+    .catch(() => setStatus(false, '서버 연결 안 됨'));
+})();
+</script>
+</body>
+</html>

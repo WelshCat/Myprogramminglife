@@ -1,0 +1,9 @@
+{
+  "name": "삼성 TV 리모컨",
+  "short_name": "TV 리모컨",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#111317",
+  "theme_color": "#111317",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
