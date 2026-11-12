@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#111317</color>
+    <color name="panel">#1B1E24</color>
+    <color name="btn">#262A32</color>
+    <color name="btn_press">#3A404C</color>
+    <color name="text">#E9ECF1</color>
+    <color name="muted">#8A919E</color>
+    <color name="accent">#4C8DFF</color>
+    <color name="power">#E5484D</color>
+    <color name="red">#E5484D</color>
+    <color name="green">#30A46C</color>
+    <color name="yellow">#F5D90A</color>
+    <color name="blue">#3E8EF7</color>
+    <color name="icon_bg_top">#232A3B</color>
+    <color name="icon_bg_bottom">#0E1117</color>
+</resources>

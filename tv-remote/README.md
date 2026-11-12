@@ -68,3 +68,5 @@ python3 -m unittest discover tests
 - `samsung_legacy.py` — 삼성 레거시(55000 포트) 프로토콜, 자동 재연결, SSDP 검색
 - `remote.py` — 웹 서버 + 명령줄 도구
 - `static/` — 모바일 웹 리모컨 UI (PWA)
+
+> PC 없이 쓰는 **안드로이드 앱** 버전은 [`../android`](../android) 에 있습니다.
