@@ -108,7 +108,7 @@ object Scheduler {
         if (!s.weeklyReminder) { am.cancel(p); return }
         // 이미 시각이 됐는데 아직 도착 처리가 안 된 알림은 다음 주로 넘기지 않고 그대로 둔다
         val pending = Store.remindAt(ctx)
-        val at = if (pending in (now - 6 * 3_600_000L)..now) pending else Planner.nextWeekly(s, ZoneId.systemDefault(), now)
+        val at = if (pending in (now - 3_600_000L)..now) pending else Planner.nextWeekly(s, ZoneId.systemDefault(), now)
         Store.setRemindAt(ctx, at)
         try { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p) }
         catch (e: Exception) { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p) }
