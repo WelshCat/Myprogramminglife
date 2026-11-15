@@ -144,7 +144,57 @@ fun runAll(): Int {
     val expected = Planner.occurrences(full, s, RuntimeState(), SEOUL, t("2026-11-15T12:00"), t("2026-11-23T00:00"))
     check(rang == expected.map { "${f(it.at)}${it.kind.name[0]}" } && rang.size == 35) { "week sim ${rang.size}: $rang" }
 
-    println(if (fails == 0) "ALL PASSED (21 scenarios, week sim ${rang.size} alarms)" else "$fails FAILED")
+    // ===== 검토 후 추가된 시나리오 =====
+    // 22) 여러 개를 놓쳤을 때 본 알람 우선: 일 23:30 본 알람 + 월 00:15 알람(미리 알람 23:15~00:00), 폰이 23:20~23:48 꺼짐
+    val wn = week(7 to "23:30", 1 to "00:15")
+    val d22 = Planner.decide(wn, s, RuntimeState(lastHandledAt = t("2026-11-22T23:16")), SEOUL, t("2026-11-22T23:48"))
+    check(d22.late && d22.next!!.kind == Kind.MAIN && f(d22.next!!.at) == "2026-11-22T23:30") { "prefer main $d22" }
+    // 늦은 본 알람이 도착하면 그 사이 지난 미리 알람(23:45)으로 곧바로 덮어쓰지 않는다
+    val (r22, st22) = Planner.onFired(d22.next!!, d22.state, late = true, now = t("2026-11-22T23:48:01"))
+    val d22b = Planner.decide(wn, s, st22, SEOUL, t("2026-11-22T23:48:02"))
+    check(r22 && !d22b.late && f(d22b.next!!.at) == "2026-11-23T00:00") { "after late main $d22b" }
+    // 23:52에 켜짐: 23:45 미리 알람은 7분 지남(5분 초과)이어도 본 알람(22분 지남)은 울린다
+    val d22c = Planner.decide(wn, s, RuntimeState(lastHandledAt = t("2026-11-22T23:16")), SEOUL, t("2026-11-22T23:52"))
+    check(d22c.late && d22c.next!!.kind == Kind.MAIN) { "main within grace $d22c" }
+
+    // 23) 늦게 울리기 꺼짐이어도, 예약해 둔 알람의 전달이 늦은 것은 울린다 (보조 예약이 무력화되지 않도록)
+    val off2 = s.copy(lateRingEnabled = false)
+    val d23 = Planner.decide(w, off2, RuntimeState(lastHandledAt = t("2026-11-16T06:45")), SEOUL, t("2026-11-16T07:00:30"), inFlightAt = main)
+    check(d23.late && d23.next!!.at == main && d23.missed == null) { "in-flight with late off $d23" }
+    // 전달 여유(10분)가 지나면 놓친 알람으로 처리
+    val d23b = Planner.decide(w, off2, RuntimeState(lastHandledAt = t("2026-11-16T06:45")), SEOUL, t("2026-11-16T07:12"), inFlightAt = main)
+    check(!d23b.late && d23b.missed?.at == main) { "in-flight expired $d23b" }
+
+    // 24) 알람 시각 직후 설정을 저장해도 도착 대기 중인 알람을 삼키지 않는다
+    val wm = Planner.watermarkOnSave(now = main + 200, inFlightAt = main)
+    check(wm == main - 1 && Planner.onFired(occ, RuntimeState(lastHandledAt = wm)).first) { "save watermark $wm" }
+    check(Planner.watermarkOnSave(now = main - 5000, inFlightAt = main) == main - 5000) { "save normal" }
+
+    // 25) 다시 알림의 원래 본 알람을 끄면 다시 알림도 무효
+    val stSn = RuntimeState(snoozeAt = main + 5 * 60_000, snoozeMainAt = main, snoozeCount = 1)
+    check(Planner.snoozeStillValid(w, stSn, SEOUL)) { "snooze valid" }
+    check(!Planner.snoozeStillValid(week(2 to "06:30"), stSn, SEOUL)) { "snooze invalid when day off" }
+    check(!Planner.snoozeStillValid(week(1 to "07:05"), stSn, SEOUL)) { "snooze invalid when time changed" }
+
+    // 26) 일주일 시뮬레이션 (늦게 울리기 꺼짐 + 매 알람 직후 감시 작업이 끼어드는 상황)
+    var st26 = RuntimeState(lastHandledAt = t("2026-11-15T12:00"))
+    var now26 = t("2026-11-15T12:00")
+    val rang26 = ArrayList<String>()
+    var inFlight = 0L
+    repeat(500) {
+        val d = Planner.decide(full, off2, st26, SEOUL, now26, inFlight); st26 = d.state
+        val n = d.next ?: return@repeat
+        if (n.at > t("2026-11-23T00:00")) return@repeat
+        inFlight = n.at
+        // 알람 시각 0.2초 뒤 감시 작업이 먼저 실행됨 (수신기보다 먼저)
+        val g = Planner.decide(full, off2, st26, SEOUL, d.fireAt + 200, inFlight); st26 = g.state
+        now26 = d.fireAt + 300
+        val (ring, ns) = Planner.onFired(n, st26, late = false, now = now26); st26 = ns
+        if (ring) rang26 += "${f(n.at)}${n.kind.name[0]}"
+    }
+    check(rang26 == rang) { "race sim ${rang26.size} vs ${rang.size}: ${rang26.take(5)}" }
+
+    println(if (fails == 0) "ALL PASSED (26 scenarios, week sim ${rang.size} alarms)" else "$fails FAILED")
     return fails
 }
 

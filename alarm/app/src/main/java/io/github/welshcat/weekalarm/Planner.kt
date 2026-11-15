@@ -120,24 +120,36 @@ object Planner {
     fun next(week: List<DayAlarm>, s: Settings, st: RuntimeState, zone: ZoneId, after: Long): Occurrence? =
         occurrences(week, s, st, zone, after, after + 9 * DAY).firstOrNull()
 
-    /** 지금 무엇을 예약해야 하는지 결정한다. 놓친 알람이 있으면 즉시 울리도록 한다. */
-    fun decide(week: List<DayAlarm>, s: Settings, st0: RuntimeState, zone: ZoneId, now: Long): Decision {
+    /** 예약된 알람이 시스템에서 늦게 전달될 수 있는 여유 (보조 예약 + Doze 지연 포함). 이 안에서는 설정과 무관하게 울린다. */
+    const val DELIVERY_SLACK = 10 * MINUTE
+
+    /**
+     * 지금 무엇을 예약해야 하는지 결정한다. 놓친 알람이 있으면 즉시 울리도록 한다.
+     * @param inFlightAt 현재 시스템에 예약되어 있는(아직 도착 처리 전일 수 있는) 알람의 원래 시각. 없으면 0.
+     */
+    fun decide(week: List<DayAlarm>, s: Settings, st0: RuntimeState, zone: ZoneId, now: Long, inFlightAt: Long = 0L): Decision {
         var last = st0.lastHandledAt
         // 첫 실행이거나, 시계가 뒤로 감긴 경우: 지금을 기준으로 삼는다 (뒤로 감긴 구간의 알람을 놓치지 않도록)
         if (last <= 0 || last > now + MINUTE) last = now
         var st = st0.copy(lastHandledAt = last)
 
         val missedList = if (last < now) occurrences(week, s, st, zone, last, now) else emptyList()
-        val latest = missedList.lastOrNull()
-        var missedNotify: Occurrence? = null
-        if (latest != null) {
-            val grace = if (latest.kind == Kind.PRE) LATE_GRACE_PRE else LATE_GRACE_MAIN
-            if (s.lateRingEnabled && now - latest.at <= grace) {
-                // 가장 최근에 놓친 알람을 지금 울린다. 그보다 이전 것들은 처리한 것으로 본다.
-                st = cleanup(st.copy(lastHandledAt = latest.at - 1), now)
-                return Decision(latest, now + 1000, true, st, null)
-            }
-            missedNotify = missedList.lastOrNull { it.kind != Kind.PRE }
+        fun grace(o: Occurrence): Long {
+            val byPolicy = if (!s.lateRingEnabled) 0L else if (o.kind == Kind.PRE) LATE_GRACE_PRE else LATE_GRACE_MAIN
+            // 예약해 둔 알람이 아직 도착 처리되지 않은 것이면(전달 지연) 항상 울린다
+            val byDelivery = if (inFlightAt > 0 && o.at == inFlightAt) DELIVERY_SLACK else 0L
+            return maxOf(byPolicy, byDelivery)
+        }
+        fun ringable(o: Occurrence) = now - o.at <= grace(o)
+        // 본 알람(다시 알림/테스트 포함)을 미리 알람보다 우선한다: 여러 개를 놓쳤을 때 본 알람이 묻히지 않도록
+        val candidate = missedList.lastOrNull { it.kind != Kind.PRE && ringable(it) }
+            ?: missedList.lastOrNull { it.kind == Kind.PRE && ringable(it) }
+        val missedNotify = missedList.lastOrNull { it.kind != Kind.PRE && it != candidate }
+        if (candidate != null) {
+            // 이 알람을 지금 울린다. 워터마크를 바로 앞에 두어 이 알람만 통과시키고,
+            // 도착하면 onFired(late=true)가 워터마크를 '지금'으로 옮겨 나머지 지난 알람은 정리된다.
+            st = cleanup(st.copy(lastHandledAt = candidate.at - 1), now)
+            return Decision(candidate, now + 1000, true, st, missedNotify)
         }
         st = cleanup(st.copy(lastHandledAt = maxOf(last, now)), now)
         val nx = next(week, s, st, zone, now)
@@ -154,9 +166,10 @@ object Planner {
     }
 
     /** 알람이 실제로 도착했을 때. 울려야 하면 true (이미 처리한 알람이면 false = 중복). */
-    fun onFired(occ: Occurrence, st: RuntimeState): Pair<Boolean, RuntimeState> {
+    fun onFired(occ: Occurrence, st: RuntimeState, late: Boolean = false, now: Long = occ.at): Pair<Boolean, RuntimeState> {
         if (occ.at <= st.lastHandledAt) return false to st
-        var n = st.copy(lastHandledAt = occ.at)
+        // 늦게 울리는 알람이면 그 사이 지난 다른 알람들도 처리된 것으로 본다 (곧바로 또 울리지 않도록)
+        var n = st.copy(lastHandledAt = if (late) maxOf(occ.at, now) else occ.at)
         when (occ.kind) {
             Kind.MAIN -> n = n.copy(snoozeCount = 0)
             Kind.SNOOZE -> n = n.copy(snoozeAt = 0L)
@@ -171,6 +184,19 @@ object Planner {
 
     fun snooze(occ: Occurrence, s: Settings, st: RuntimeState, now: Long) =
         st.copy(snoozeAt = now + s.snoozeMinutes * MINUTE, snoozeMainAt = occ.mainAt, snoozeCount = st.snoozeCount + 1)
+
+    /**
+     * 설정/일정을 저장할 때의 워터마크. 저장 이전 시각의 알람을 소급해서 울리지 않되,
+     * 이미 예약되어 도착 처리를 기다리는 알람(inFlightAt <= now)은 삼키지 않는다.
+     */
+    fun watermarkOnSave(now: Long, inFlightAt: Long): Long =
+        if (inFlightAt in 1..now) minOf(now, inFlightAt - 1) else now
+
+    /** 일정을 바꿔서 다시 알림의 원래 본 알람이 더 이상 없으면 다시 알림을 취소한다. */
+    fun snoozeStillValid(week: List<DayAlarm>, st: RuntimeState, zone: ZoneId): Boolean {
+        if (st.snoozeAt <= 0) return true
+        return st.snoozeMainAt in mainTimes(week, zone, st.snoozeMainAt, st.snoozeMainAt)
+    }
 
     /** 다음 주간 알림 시각. */
     fun nextWeekly(s: Settings, zone: ZoneId, now: Long): Long {

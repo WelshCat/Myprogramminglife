@@ -25,6 +25,7 @@ object Scheduler {
     private const val RC_BACKUP = 2
     private const val RC_WEEKLY = 3
     private const val RC_SHOW = 4
+    private const val RC_RESUME = 5
     private const val GUARD_JOB_ID = 77
     private const val BACKUP_DELAY = 60_000L   // 보조 예약: 원래 시각 + 1분
 
@@ -33,8 +34,9 @@ object Scheduler {
             val week = Store.week(ctx)
             val s = Store.settings(ctx)
             val now = System.currentTimeMillis()
+            val inFlight = Store.scheduledOccAt(ctx)
             val d = Store.updateState(ctx) { st ->
-                val dec = Planner.decide(week, s, st, ZoneId.systemDefault(), now)
+                val dec = Planner.decide(week, s, st, ZoneId.systemDefault(), now, inFlight)
                 dec to dec.state
             }
             if (d.next != null) {
@@ -51,6 +53,7 @@ object Scheduler {
             }
             scheduleWeekly(ctx, s, now)
             ensureGuardJob(ctx)
+            resumeIfInterrupted(ctx, s, now)
         } catch (e: Exception) {
             Store.log(ctx, "예약 오류 ($reason): $e")
             Notifs.warning(ctx, "알람 예약 중 오류가 발생했습니다. 앱을 열어 확인해 주세요.")
@@ -81,10 +84,13 @@ object Scheduler {
             }
         }
         // 2차: 보조 예약 (1차가 어떤 이유로 사라져도 1분 뒤 울림. 1차가 울렸으면 중복으로 무시됨)
+        // 정확한 알람이어야 안드로이드 12+에서 울림 서비스를 시작할 수 있다
+        val backup = pi(ctx, RC_BACKUP, fireIntent(ctx, occ, true).putExtra("late", late))
         try {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt + BACKUP_DELAY, pi(ctx, RC_BACKUP, fireIntent(ctx, occ, true)))
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt + BACKUP_DELAY, backup)
         } catch (e: Exception) {
-            Store.log(ctx, "보조 예약 실패: $e")
+            try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt + BACKUP_DELAY, backup) }
+            catch (e2: Exception) { Store.log(ctx, "보조 예약 실패: $e2") }
         }
     }
 
@@ -114,6 +120,29 @@ object Scheduler {
         try { js.schedule(info) } catch (e: Exception) { Store.log(ctx, "감시 작업 등록 실패: $e") }
     }
 
+    /**
+     * 울리던 알람이 사용자 조작 없이 중단됐으면(프로세스 종료, 서비스 경쟁 상태 등) 즉시 다시 울린다.
+     * 정확한 알람으로 다시 걸어야 백그라운드에서도 울림 서비스를 시작할 수 있다.
+     */
+    fun resumeIfInterrupted(ctx: Context, s: Settings = Store.settings(ctx), now: Long = System.currentTimeMillis()) {
+        val (occ, started) = Store.ringing(ctx) ?: return
+        if (RingState.current != null) return                       // 이 프로세스에서 울리는 중
+        if (now - started > (s.ringMinutes + 1) * 60_000L || now < started - 60_000L) {
+            Store.setRinging(ctx, null); return                      // 이미 울림 시간이 지남
+        }
+        Store.log(ctx, "중단된 알람 다시 울림: ${Fmt.kind(occ)}")
+        val i = Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_FIRE).also { Occ.put(it, occ); it.putExtra("resume", true) }
+        val p = pi(ctx, RC_RESUME, i)
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        val show = PendingIntent.getActivity(ctx, RC_SHOW, Intent(ctx, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        try { am.setAlarmClock(AlarmManager.AlarmClockInfo(now + 1000, show), p) }
+        catch (e: Exception) {
+            try { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, now + 1000, p) }
+            catch (e2: Exception) { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, now + 1000, p) }
+        }
+    }
+
     /** 1분 뒤 테스트 알람. */
     fun scheduleTest(ctx: Context) {
         val at = System.currentTimeMillis() + 60_000L
@@ -131,8 +160,14 @@ class AlarmReceiver : BroadcastReceiver() {
         if (occ == null) { Scheduler.reschedule(ctx, "잘못된 알람"); return }
         val backup = intent.getBooleanExtra("backup", false)
         val late = intent.getBooleanExtra("late", false)
+        if (intent.getBooleanExtra("resume", false)) {
+            // 중단됐던 알람 다시 울리기: 아직 '울리는 중'으로 기록되어 있을 때만 (그새 해제했으면 무시)
+            if (Store.ringing(ctx)?.first == occ && RingState.current == null) RingService.start(ctx, occ)
+            else WakeLocks.releaseStartup()
+            return
+        }
         val ring = try {
-            Store.updateState(ctx) { st -> Planner.onFired(occ, st) }
+            Store.updateState(ctx) { st -> Planner.onFired(occ, st, late, System.currentTimeMillis()) }
         } catch (e: Exception) {
             Store.log(ctx, "상태 저장 오류: $e"); true       // 의심스러우면 울린다
         }
@@ -219,7 +254,7 @@ object Fmt {
         Kind.TEST -> "테스트 알람"
     }
     fun duration(ms: Long): String {
-        val totalMin = (ms + 59_999) / 60_000
+        val totalMin = (ms.coerceAtLeast(0) + 59_999) / 60_000
         val d = totalMin / (24 * 60); val h = (totalMin / 60) % 24; val m = totalMin % 60
         return buildString {
             if (d > 0) append("${d}일 ")

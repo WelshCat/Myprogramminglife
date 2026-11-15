@@ -37,6 +37,7 @@ class AlarmActivity : Activity() {
 
         root = vertical(this, 24).apply { gravity = Gravity.CENTER_HORIZONTAL }
         setContentView(root)
+        root.padForSystemBars()
         RingState.listen(onRingChanged)
         if (RingState.current == null) { finish(); return }
         bind()
@@ -86,6 +87,7 @@ class AlarmActivity : Activity() {
             }, top = 12, side = 24)
         }
         root.add(View(this), h = dp(24))
+        handler.removeCallbacks(tick)   // 새 알람으로 교체될 때 시계 갱신이 중복되지 않도록
         tick.run()
     }
 

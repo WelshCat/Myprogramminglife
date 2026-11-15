@@ -55,6 +55,7 @@ class MainActivity : Activity() {
         root.add(text("※ 설정한 알람은 매주 같은 요일에 반복돼요. 새로운 한 주가 시작되면 확인 알림이 와요 (설정에서 변경).", 12f, C.MUTED), top = 14)
 
         setContentView(ScrollView(this).apply { addView(root); isFillViewport = true })
+        root.padForSystemBars()
 
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
@@ -66,6 +67,10 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // 알람이 울리는 중이면 해제 화면으로 (알림이 안 보이는 상황에서도 끌 수 있도록)
+        if (RingState.current != null) {
+            startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
         Ringer.restoreVolumeIfNeeded(this)
         Scheduler.reschedule(this, "앱 열기")
         refresh()
@@ -110,13 +115,23 @@ class MainActivity : Activity() {
         val am = getSystemService(AlarmManager::class.java)
         val pm = getSystemService(PowerManager::class.java)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            out += Issue("알림 권한이 꺼져 있어요. 알람 화면과 해제 버튼이 표시되지 않을 수 있어요.", "허용") {
+            out += Issue("[중요] 알림 권한이 꺼져 있어요. 알람 소리는 나지만 잠금 화면에 알람 화면이 뜨지 않아요 (앱을 열면 해제할 수 있어요).", "허용") {
                 if (shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) || !Store.permissionAsked(this))
                     requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
                 else openAppNotificationSettings()
             }
         } else if (!nm.areNotificationsEnabled()) {
-            out += Issue("알림이 꺼져 있어요.", "설정 열기") { openAppNotificationSettings() }
+            out += Issue("[중요] 알림이 꺼져 있어요. 잠금 화면에 알람 화면이 뜨지 않아요.", "설정 열기") { openAppNotificationSettings() }
+        } else {
+            Notifs.ensureChannels(this)
+            val ch = nm.getNotificationChannel(Notifs.CH_RING_ID)
+            if (ch != null && ch.importance < NotificationManager.IMPORTANCE_HIGH) {
+                out += Issue("[중요] '알람 울림' 알림이 꺼져 있거나 낮게 설정돼 있어요. 잠금 화면에 알람 화면이 뜨지 않아요.", "설정 열기") {
+                    startSafe(Intent(SysSettings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                        .putExtra(SysSettings.EXTRA_APP_PACKAGE, packageName)
+                        .putExtra(SysSettings.EXTRA_CHANNEL_ID, Notifs.CH_RING_ID))
+                }
+            }
         }
         if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
             out += Issue("정확한 알람 권한이 없어요. 알람이 늦게 울릴 수 있어요.", "허용") {

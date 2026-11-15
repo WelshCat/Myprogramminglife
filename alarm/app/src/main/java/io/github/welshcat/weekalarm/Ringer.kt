@@ -145,17 +145,7 @@ class Ringer(private val ctx: Context) {
     }
 
     /** 울리는 동안만 알람 음량을 설정값으로 맞춘다 (휴대폰 알람 음량이 0이어도 울리도록). */
-    private fun raiseVolume(percent: Int) {
-        try {
-            val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            val target = ceil(max * percent.coerceIn(10, 100) / 100.0).toInt().coerceIn(1, max)
-            val cur = audio.getStreamVolume(AudioManager.STREAM_ALARM)
-            if (Store.savedAlarmVolume(ctx) < 0) Store.setSavedAlarmVolume(ctx, cur)
-            audio.setStreamVolume(AudioManager.STREAM_ALARM, target, 0)
-        } catch (e: Exception) {
-            Store.log(ctx, "알람 음량 조정 실패: $e")
-        }
-    }
+    private fun raiseVolume(percent: Int) = raiseVolumeStatic(ctx, percent)
 
     private fun releasePlayer() {
         player?.let { try { it.stop() } catch (_: Exception) {}; try { it.release() } catch (_: Exception) {} }
@@ -174,6 +164,20 @@ class Ringer(private val ctx: Context) {
     }
 
     companion object {
+        /** 울리는 동안만 알람 음량을 설정값으로 맞춘다 (원래 값은 저장해 두었다가 복원). */
+        fun raiseVolumeStatic(ctx: Context, percent: Int) {
+            try {
+                val audio = ctx.getSystemService(AudioManager::class.java)
+                val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                val target = ceil(max * percent.coerceIn(10, 100) / 100.0).toInt().coerceIn(1, max)
+                val cur = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+                if (Store.savedAlarmVolume(ctx) < 0) Store.setSavedAlarmVolume(ctx, cur)
+                audio.setStreamVolume(AudioManager.STREAM_ALARM, target, 0)
+            } catch (e: Exception) {
+                Store.log(ctx, "알람 음량 조정 실패: $e")
+            }
+        }
+
         fun restoreVolumeIfNeeded(ctx: Context) {
             val orig = Store.savedAlarmVolume(ctx)
             if (orig < 0 || RingState.current != null) return

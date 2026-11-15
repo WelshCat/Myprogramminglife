@@ -29,8 +29,12 @@ object Store {
 
     fun saveWeek(ctx: Context, week: List<DayAlarm>) = synchronized(lock) {
         val raw = week.joinToString(";") { "${if (it.enabled) 1 else 0},${it.hour},${it.minute}" }
-        // 설정을 바꾼 시점 이전의 알람은 "처리됨" — 방금 지난 시각으로 저장해도 소급해서 울리지 않는다
-        val st = state(ctx).copy(lastHandledAt = System.currentTimeMillis())
+        // 저장 이전 시각의 알람은 소급해서 울리지 않는다 (단, 도착 처리를 기다리는 알람은 그대로 둔다)
+        var st = state(ctx)
+        st = st.copy(lastHandledAt = Planner.watermarkOnSave(System.currentTimeMillis(), scheduledOccAt(ctx)))
+        // 다시 알림의 원래 알람을 끄거나 시간을 바꿨으면 다시 알림도 취소
+        if (!Planner.snoozeStillValid(week, st, java.time.ZoneId.systemDefault()))
+            st = st.copy(snoozeAt = 0L, snoozeMainAt = 0L, snoozeCount = 0)
         prefs(ctx).edit().putString("week", raw).also { writeState(it, st) }.commit()
     }
 
@@ -60,7 +64,7 @@ object Store {
     }
 
     fun saveSettings(ctx: Context, s: Settings) = synchronized(lock) {
-        val st = state(ctx).copy(lastHandledAt = System.currentTimeMillis())
+        val st = state(ctx).copy(lastHandledAt = Planner.watermarkOnSave(System.currentTimeMillis(), scheduledOccAt(ctx)))
         prefs(ctx).edit()
             .putBoolean("preEnabled", s.preEnabled).putInt("preLead", s.preLeadMinutes)
             .putInt("preInterval", s.preIntervalMinutes).putBoolean("skipPreButton", s.skipPreButton)
@@ -108,6 +112,22 @@ object Store {
     }
     fun scheduledKind(ctx: Context) = prefs(ctx).getString("scheduledKind", "") ?: ""
     fun scheduledOccAt(ctx: Context) = prefs(ctx).getLong("scheduledOccAt", 0L)
+
+    // ---------------- 지금 울리고 있는 알람 (프로세스가 죽어도 남도록) ----------------
+    fun ringing(ctx: Context): Pair<Occurrence, Long>? {
+        val p = prefs(ctx)
+        val at = p.getLong("ringAt", 0L)
+        if (at <= 0) return null
+        val kind = runCatching { Kind.valueOf(p.getString("ringKind", "") ?: "") }.getOrNull() ?: return null
+        return Occurrence(at, kind, p.getLong("ringMainAt", at), p.getInt("ringBefore", 0)) to p.getLong("ringStarted", 0L)
+    }
+    fun setRinging(ctx: Context, occ: Occurrence?, startedAt: Long = System.currentTimeMillis()) {
+        val e = prefs(ctx).edit()
+        if (occ == null) e.remove("ringAt").remove("ringKind").remove("ringMainAt").remove("ringBefore").remove("ringStarted")
+        else e.putLong("ringAt", occ.at).putString("ringKind", occ.kind.name).putLong("ringMainAt", occ.mainAt)
+            .putInt("ringBefore", occ.minutesBefore).putLong("ringStarted", startedAt)
+        e.commit()
+    }
 
     // ---------------- 알람 음량 복원용 ----------------
     fun savedAlarmVolume(ctx: Context) = prefs(ctx).getInt("origVolume", -1)

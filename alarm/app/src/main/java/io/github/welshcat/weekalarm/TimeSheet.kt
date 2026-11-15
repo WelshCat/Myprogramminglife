@@ -27,6 +27,7 @@ class TimeSheet(
     private lateinit var hourPicker: NumberPicker
     private lateinit var minutePicker: NumberPicker
     private lateinit var preview: TextView
+    private var scrolling = 0
 
     fun show() {
         val root = vertical(ctx, 20)
@@ -83,8 +84,13 @@ class TimeSheet(
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (days.isEmpty()) { preview.text = "적용할 요일을 하나 이상 고르세요"; preview.setTextColor(C.RED); return@setOnClickListener }
-                onSave(hourPicker.value, minutePicker.value, days.toSet())
-                dialog.dismiss()
+                // 휠이 아직 돌고 있으면 멈출 때까지 기다렸다가 최종 값으로 저장
+                fun save() {
+                    if (scrolling > 0) { hourPicker.postDelayed({ save() }, 100); return }
+                    onSave(hourPicker.value, minutePicker.value, days.toSet())
+                    dialog.dismiss()
+                }
+                save()
             }
         }
         dialog.show()
@@ -97,6 +103,11 @@ class TimeSheet(
         descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS   // 키보드 입력 막기 (돌려서만 선택)
         if (Build.VERSION.SDK_INT >= 29) { textSize = ctx.dp(30).toFloat(); textColor = C.TEXT }
         if (Build.VERSION.SDK_INT >= 29) selectionDividerHeight = ctx.dp(2)
+        var mine = false
+        setOnScrollListener { _, state ->
+            val now = state != NumberPicker.OnScrollListener.SCROLL_STATE_IDLE
+            if (now != mine) { scrolling += if (now) 1 else -1; mine = now }
+        }
     }
 
     private fun small(label: String, onClick: () -> Unit) = ctx.button(label, C.BTN, C.TEXT, onClick).apply {

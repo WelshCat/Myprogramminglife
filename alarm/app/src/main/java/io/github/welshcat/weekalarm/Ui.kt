@@ -73,3 +73,20 @@ fun LinearLayout.add(v: View, w: Int = ViewGroup.LayoutParams.MATCH_PARENT, h: I
     p.topMargin = context.dp(top); p.leftMargin = context.dp(side); p.rightMargin = context.dp(side)
     addView(v, p); return v
 }
+
+/** Android 15부터 앱이 상태 표시줄/내비게이션 바 아래까지 그려지므로, 그만큼 안쪽 여백을 더한다. */
+fun View.padForSystemBars() {
+    val l = paddingLeft; val t = paddingTop; val r = paddingRight; val b = paddingBottom
+    setOnApplyWindowInsetsListener { v, insets ->
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val i = insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
+            v.setPadding(l + i.left, t + i.top, r + i.right, b + i.bottom)
+        } else {
+            @Suppress("DEPRECATION")
+            v.setPadding(l + insets.systemWindowInsetLeft, t + insets.systemWindowInsetTop,
+                r + insets.systemWindowInsetRight, b + insets.systemWindowInsetBottom)
+        }
+        insets
+    }
+    requestApplyInsets()
+}

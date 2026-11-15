@@ -30,6 +30,7 @@ class SettingsActivity : Activity() {
         window.decorView.setBackgroundColor(C.BG)
         list = vertical(this, 16)
         setContentView(ScrollView(this).apply { addView(list) })
+        list.padForSystemBars()
         build()
     }
 
@@ -93,7 +94,7 @@ class SettingsActivity : Activity() {
             Scheduler.reschedule(this, "수동 재예약")
             Toast.makeText(this, "다시 예약했어요", Toast.LENGTH_SHORT).show()
         }
-        list.add(text("주간 알람 1.0", 12f, C.MUTED), top = 24)
+        list.add(text("주간 알람 1.1", 12f, C.MUTED), top = 24)
     }
 
     // ---------------- 행 만들기 ----------------
@@ -187,16 +188,48 @@ class SettingsActivity : Activity() {
             }
             RC_FILE -> {
                 val uri = data.data ?: return
-                try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
                 val name = runCatching {
                     contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                         if (c.moveToFirst()) c.getString(0) else null
                     }
-                }.getOrNull()
-                s = s.copy(soundUri = uri.toString(), soundName = name ?: "내 음악 파일")
-                Toast.makeText(this, "파일을 지우거나 옮기면 기본 알람음으로 대신 울려요", Toast.LENGTH_LONG).show()
+                }.getOrNull() ?: "내 음악 파일"
+                Toast.makeText(this, "파일을 불러오는 중…", Toast.LENGTH_SHORT).show()
+                // 알람 때 클라우드 파일을 내려받느라 멈추거나, 재부팅 후 잠금 해제 전에 못 읽는 일이 없도록
+                // 앱 안(기기 보호 저장소)에 복사해 두고 그 파일로 울린다.
+                Thread {
+                    val result = runCatching { copyToAppStorage(uri) }
+                    handler.post {
+                        result.onSuccess { file ->
+                            s = s.copy(soundUri = android.net.Uri.fromFile(file).toString(), soundName = name)
+                            Toast.makeText(this, "알람음으로 설정했어요: $name", Toast.LENGTH_SHORT).show()
+                        }.onFailure { e ->
+                            Toast.makeText(this, "파일을 불러오지 못했어요: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }.start()
             }
         }
+    }
+
+    private fun copyToAppStorage(uri: Uri): java.io.File {
+        val dir = createDeviceProtectedStorageContext().filesDir
+        val tmp = java.io.File(dir, "custom_alarm.tmp")
+        val maxBytes = 30L * 1024 * 1024
+        contentResolver.openInputStream(uri)!!.use { input ->
+            tmp.outputStream().use { out ->
+                val buf = ByteArray(64 * 1024); var total = 0L
+                while (true) {
+                    val n = input.read(buf); if (n < 0) break
+                    total += n; if (total > maxBytes) throw IllegalStateException("30MB 이하 파일만 쓸 수 있어요")
+                    out.write(buf, 0, n)
+                }
+            }
+        }
+        // 이전 파일과 이름을 번갈아 써서, 설정이 바뀌기 전까지 기존 알람음이 깨지지 않게 한다
+        val a = java.io.File(dir, "custom_alarm_a"); val b = java.io.File(dir, "custom_alarm_b")
+        val target = if (s.soundUri?.endsWith("custom_alarm_a") == true) b else a
+        if (!tmp.renameTo(target)) { tmp.copyTo(target, overwrite = true); tmp.delete() }
+        return target
     }
 
     private fun playPreview() {

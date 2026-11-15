@@ -81,6 +81,7 @@ object Notifs {
             .setAutoCancel(false)
             .setFullScreenIntent(alarmScreen(ctx), true)
             .setContentIntent(alarmScreen(ctx))
+            .setDeleteIntent(serviceAction(ctx, RingService.ACTION_REPOST, 23))
             .addAction(Notification.Action.Builder(null, "해제", serviceAction(ctx, RingService.ACTION_DISMISS, 20)).build())
         if (Planner.canSnooze(occ, s, st)) {
             b.addAction(Notification.Action.Builder(null, "다시 알림 ${s.snoozeMinutes}분",
@@ -96,6 +97,7 @@ object Notifs {
     /** 비상 알림: 알림 자체가 알람음을 끝없이 반복한다 (FLAG_INSISTENT). */
     fun fallback(ctx: Context, occ: Occurrence) {
         try {
+            Ringer.raiseVolumeStatic(ctx, Store.settings(ctx).volumePercent)
             ensureChannels(ctx)
             val n = Notification.Builder(ctx, CH_FALLBACK)
                 .setSmallIcon(R.drawable.ic_stat_alarm)
@@ -156,6 +158,8 @@ object Notifs {
     fun post(ctx: Context, id: Int, n: Notification) {
         try { nm(ctx).notify(id, n) } catch (e: SecurityException) { Store.log(ctx, "알림 권한 없음") }
     }
+
+    const val CH_RING_ID = CH_RING
 
     fun cancel(ctx: Context, id: Int) { try { nm(ctx).cancel(id) } catch (_: Exception) {} }
 }
