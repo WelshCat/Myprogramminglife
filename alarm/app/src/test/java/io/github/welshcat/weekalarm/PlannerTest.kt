@@ -201,7 +201,13 @@ fun runAll(): Int {
     val (r27b, _) = Planner.onFired(occ, st27)
     check(r27 && r27b) { "late delivery must not swallow main" }
 
-    println(if (fails == 0) "ALL PASSED (27 scenarios, week sim ${rang.size} alarms)" else "$fails FAILED")
+    // 28) 첫 미리 알람 표시 시각: 90분 전/20분 간격이면 실제 첫 울림은 80분 전
+    val s90 = s.copy(preLeadMinutes = 90, preIntervalMinutes = 20)
+    val o90 = Planner.occurrences(w, s90, RuntimeState(), SEOUL, t("2026-11-16T05:00"), t("2026-11-16T07:00"))
+    check(Planner.firstPreMinutes(s90) == 80 && f(o90.first().at) == "2026-11-16T05:40") { "first pre ${list(o90)}" }
+    check(Planner.firstPreMinutes(s) == 60) { "first pre default" }
+
+    println(if (fails == 0) "ALL PASSED (28 scenarios, week sim ${rang.size} alarms)" else "$fails FAILED")
     return fails
 }
 
