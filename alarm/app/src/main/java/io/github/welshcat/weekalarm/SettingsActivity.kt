@@ -72,6 +72,10 @@ class SettingsActivity : Activity() {
         actionRow("미리 듣기 (5초)", "선택한 소리와 음량으로 재생") { playPreview() }
 
         section("안전장치")
+        switchRow("방해 금지 모드에서도 울리기", "방해 금지 모드가 알람을 막고 있으면 울리는 동안만 '알람만 허용'으로 바꾸고 끝나면 되돌림" +
+            if (Dnd.accessGranted(this)) "" else " (권한 필요 — 눌러서 허용)", cur.dndOverride && Dnd.accessGranted(this)) { on ->
+            if (on && !Dnd.accessGranted(this)) openDndAccess() else s = s.copy(dndOverride = on)
+        }
         switchRow("놓친 알람 늦게라도 울리기", "휴대폰이 꺼져 있었거나 시간이 바뀌어 놓친 본 알람을 60분 이내면 바로 울림",
             cur.lateRingEnabled) { s = s.copy(lateRingEnabled = it) }
 
@@ -93,7 +97,7 @@ class SettingsActivity : Activity() {
             Scheduler.reschedule(this, "수동 재예약")
             Toast.makeText(this, "다시 예약했어요", Toast.LENGTH_SHORT).show()
         }
-        list.add(text("주간 알람 1.4", 12f, C.MUTED), top = 24)
+        list.add(text("주간 알람 1.5", 12f, C.MUTED), top = 24)
     }
 
     // ---------------- 행 만들기 ----------------
@@ -232,6 +236,15 @@ class SettingsActivity : Activity() {
     }
 
     private val previewStopper = Runnable { stopPreview() }
+
+    private fun openDndAccess() {
+        if (!s.dndOverride) s = s.copy(dndOverride = true)
+        Toast.makeText(this, "목록에서 '주간 알람'을 찾아 허용해 주세요", Toast.LENGTH_LONG).show()
+        try { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
+        catch (e: Exception) { Toast.makeText(this, "설정 화면을 열 수 없어요", Toast.LENGTH_SHORT).show() }
+    }
+
+    override fun onResume() { super.onResume(); build() }
 
     private fun playPreview() {
         stopPreview()

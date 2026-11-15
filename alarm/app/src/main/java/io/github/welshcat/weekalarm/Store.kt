@@ -55,6 +55,7 @@ object Store {
             soundUri = p.getString("soundUri", null),
             soundName = p.getString("soundName", null),
             lateRingEnabled = p.getBoolean("lateRing", d.lateRingEnabled),
+            dndOverride = p.getBoolean("dndOverride", d.dndOverride),
             weeklyReminder = p.getBoolean("remind", d.weeklyReminder),
             weeklyDay = p.getInt("remindDay", d.weeklyDay),
             weeklyHour = p.getInt("remindHour", d.weeklyHour),
@@ -71,7 +72,7 @@ object Store {
             .putInt("snoozeMax", s.snoozeMaxCount).putInt("ringMinutes", s.ringMinutes)
             .putInt("volume", s.volumePercent).putBoolean("gradual", s.gradualVolume)
             .putBoolean("vibrate", s.vibrate).putString("soundUri", s.soundUri).putString("soundName", s.soundName)
-            .putBoolean("lateRing", s.lateRingEnabled).putBoolean("remind", s.weeklyReminder)
+            .putBoolean("lateRing", s.lateRingEnabled).putBoolean("dndOverride", s.dndOverride).putBoolean("remind", s.weeklyReminder)
             .putInt("remindDay", s.weeklyDay).putInt("remindHour", s.weeklyHour).putInt("remindMinute", s.weeklyMinute)
             .also { writeState(it, st) }
             .commit()
@@ -126,6 +127,10 @@ object Store {
             .putInt("ringBefore", occ.minutesBefore).putLong("ringStarted", startedAt)
         e.commit()
     }
+
+    // ---------------- 방해 금지 모드 복원용 ----------------
+    fun savedZen(ctx: Context) = prefs(ctx).getInt("origZen", -1)
+    fun setSavedZen(ctx: Context, v: Int) { prefs(ctx).edit().putInt("origZen", v).commit() }
 
     // ---------------- 알람 음량 복원용 ----------------
     fun savedAlarmVolume(ctx: Context) = prefs(ctx).getInt("origVolume", -1)

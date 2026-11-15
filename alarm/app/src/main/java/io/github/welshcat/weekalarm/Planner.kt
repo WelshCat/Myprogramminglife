@@ -39,6 +39,7 @@ data class Settings(
     val soundName: String? = null,
     // 안전장치
     val lateRingEnabled: Boolean = true,   // 놓친 알람을 늦게라도 울리기
+    val dndOverride: Boolean = true,       // 방해 금지 모드에서도 울리기
     // 알람 설정 요청 알림: 모든 요일이 꺼져 있으면 이 시각에 "알람을 설정하세요" 알림
     val weeklyReminder: Boolean = true,
     val weeklyDay: Int = 7,                // 1=월 … 7=일 (기본: 일요일)

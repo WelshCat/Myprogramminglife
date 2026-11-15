@@ -152,6 +152,12 @@ class MainActivity : Activity() {
                 startSafe(Intent(SysSettings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
             }
         }
+        if (Store.settings(this).dndOverride && !Dnd.accessGranted(this)) {
+            out += Issue("방해 금지 모드 접근 권한이 없어요. 방해 금지 모드가 알람을 막고 있으면 소리가 안 나요.", "허용") {
+                Toast.makeText(this, "목록에서 '주간 알람'을 찾아 허용해 주세요", Toast.LENGTH_LONG).show()
+                startSafe(Intent(SysSettings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+            }
+        }
         if (!pm.isIgnoringBatteryOptimizations(packageName)) {
             out += Issue("배터리 최적화 대상이에요. 제외하면 더 안정적으로 울려요.", "제외하기") {
                 @Suppress("BatteryLife")
