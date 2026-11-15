@@ -32,7 +32,7 @@ object Notifs {
         // 채널 소리까지 알람음으로 하면 두 소리가 겹쳐 울리므로, 채널 소리는 앱에 포함된 무음 파일로 지정한다.
         nm.createNotificationChannel(NotificationChannel(CH_RING, "알람 울림", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "알람이 울릴 때 표시되는 화면/알림 (알람 소리는 앱 설정의 알람음으로 울립니다)"
-            setSound(android.net.Uri.parse("android.resource://${ctx.packageName}/raw/weekalarm_tone"),
+            setSound(android.net.Uri.parse("android.resource://${ctx.packageName}/${R.raw.weekalarm_tone}"),
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
             enableVibration(false)
