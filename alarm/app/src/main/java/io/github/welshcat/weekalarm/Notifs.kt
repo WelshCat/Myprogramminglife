@@ -16,7 +16,9 @@ object Notifs {
     const val ID_MISSED = 103
     const val ID_WARN = 104
 
-    private const val CH_RING = "ring"
+    // 채널 소리는 만든 뒤에 바꿀 수 없어서 새 ID 사용 (예전 "ring"은 삭제)
+    private const val CH_RING = "ring2"
+    private const val CH_RING_OLD = "ring"
     private const val CH_FALLBACK = "fallback"
     private const val CH_WEEKLY = "weekly"
     private const val CH_INFO = "info"
@@ -25,10 +27,14 @@ object Notifs {
 
     fun ensureChannels(ctx: Context) {
         val nm = nm(ctx)
-        // 울림 알림: 소리는 서비스가 직접 내므로 채널 소리는 끈다
+        try { nm.deleteNotificationChannel(CH_RING_OLD) } catch (_: Exception) {}
+        // 울림 알림: '소리' 알림으로 등록하되, 실제 알람음은 앱이 설정대로(선택한 소리·음량·점점 크게) 직접 낸다.
+        // 채널 소리까지 알람음으로 하면 두 소리가 겹쳐 울리므로, 채널 소리는 앱에 포함된 무음 파일로 지정한다.
         nm.createNotificationChannel(NotificationChannel(CH_RING, "알람 울림", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "알람이 울릴 때 표시되는 화면/알림"
-            setSound(null, null)
+            description = "알람이 울릴 때 표시되는 화면/알림 (알람 소리는 앱 설정의 알람음으로 울립니다)"
+            setSound(android.net.Uri.parse("android.resource://${ctx.packageName}/raw/weekalarm_tone"),
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
             enableVibration(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setBypassDnd(true)

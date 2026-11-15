@@ -136,6 +136,9 @@ object Store {
     fun savedAlarmVolume(ctx: Context) = prefs(ctx).getInt("origVolume", -1)
     fun setSavedAlarmVolume(ctx: Context, v: Int) { prefs(ctx).edit().putInt("origVolume", v).commit() }
 
+    fun dndExemptAck(ctx: Context) = prefs(ctx).getBoolean("dndExemptAck", false)
+    fun setDndExemptAck(ctx: Context) { prefs(ctx).edit().putBoolean("dndExemptAck", true).apply() }
+
     fun permissionAsked(ctx: Context) = prefs(ctx).getBoolean("permAsked", false)
     fun setPermissionAsked(ctx: Context) { prefs(ctx).edit().putBoolean("permAsked", true).apply() }
 

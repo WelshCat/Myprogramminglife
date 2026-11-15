@@ -152,16 +152,9 @@ class MainActivity : Activity() {
                 val notExempt = listOf(Notifs.CH_RING_ID, Notifs.CH_FALLBACK_ID)
                     .mapNotNull { nm.getNotificationChannel(it) }
                     .filter { !it.canBypassDnd() }
-                if (notExempt.isNotEmpty()) {
-                    val first = notExempt.first()
-                    out += Issue("방해 금지 예외가 설정되지 않았어요. 켜 두면 방해 금지 중에도 알람 화면과 비상 알림이 확실히 표시돼요." +
-                        if (notExempt.size > 1) " ('${notExempt.joinToString("', '") { it.name }}' ${notExempt.size}개 항목)" else "",
-                        "설정 열기") {
-                        Toast.makeText(this, "'${first.name}' 화면에서 '방해 금지 모드 무시'(방해 금지 중 알림 허용)를 켜 주세요", Toast.LENGTH_LONG).show()
-                        startSafe(Intent(SysSettings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                            .putExtra(SysSettings.EXTRA_APP_PACKAGE, packageName)
-                            .putExtra(SysSettings.EXTRA_CHANNEL_ID, first.id))
-                    }
+                if (notExempt.isNotEmpty() && !Store.dndExemptAck(this)) {
+                    out += Issue("방해 금지 예외에 이 앱이 추가되지 않았어요 (권장). 추가하면 방해 금지 중에도 알람 화면이 확실히 표시돼요.",
+                        "방법 보기") { showDndGuide() }
                 }
             }
         }
@@ -232,6 +225,32 @@ class MainActivity : Activity() {
             healthCard.add(text("삼성 휴대폰: 설정 › 배터리 › 백그라운드 사용 제한에서 이 앱이 '절전 상태 앱'/'깊은 절전 상태 앱'에 없어야 해요. '절전 예외 앱'에 추가하는 것을 권장해요.",
                 12f, C.MUTED), top = 10)
         }
+    }
+
+    /** 방해 금지 예외 추가 방법 안내 (기기마다 메뉴 위치가 달라 단계별로 보여 주고 방해 금지 화면을 연다). */
+    private fun showDndGuide() {
+        val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        val steps = if (samsung)
+            "1. 아래 [방해 금지 설정 열기]를 누르세요\n" +
+            "2. '앱' (또는 '알림 허용 앱') → '앱 추가'\n" +
+            "3. 목록에서 '주간 알람'을 선택\n" +
+            "4. '알람 울림', '알람 (비상)'이 켜져 있는지 확인\n\n" +
+            "메뉴가 안 보이면: 설정 › 알림 › 방해 금지 › 앱"
+        else
+            "1. 아래 [방해 금지 설정 열기]를 누르세요\n" +
+            "2. '앱' → '앱 추가' (Android 15 이상은 '모드' › '방해 금지' › '앱')\n" +
+            "3. 목록에서 '주간 알람'을 선택하고 모든 알림을 허용\n\n" +
+            "메뉴가 안 보이면: 설정 › 알림 › 방해 금지"
+        AlertDialog.Builder(this)
+            .setTitle("방해 금지 예외에 추가하기")
+            .setMessage(steps)
+            .setPositiveButton("방해 금지 설정 열기") { _, _ ->
+                try { startActivity(Intent("android.settings.ZEN_MODE_SETTINGS")) }
+                catch (e: Exception) { openAppNotificationSettings() }
+            }
+            .setNeutralButton("이미 했어요") { _, _ -> Store.setDndExemptAck(this); refresh() }
+            .setNegativeButton("닫기", null)
+            .show()
     }
 
     private fun openAppNotificationSettings() =
