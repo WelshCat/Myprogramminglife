@@ -53,10 +53,8 @@ fun runAll(): Int {
     // 7) 모든 요일 꺼짐
     check(Planner.next(List(7) { DayAlarm() }, s, RuntimeState(), SEOUL, t("2026-11-16T00:00")) == null) { "none" }
 
-    // 8) 남은 미리 알람 건너뛰기: 본 알람은 그대로
+    // 8) (건너뛰기 기능 삭제됨)
     val main = t("2026-11-16T07:00")
-    val skip = Planner.occurrences(w, s, RuntimeState(skipPreForMainAt = main), SEOUL, t("2026-11-16T06:15"), t("2026-11-16T08:00"))
-    check(list(skip) == listOf("07:00M")) { "skip pre: ${list(skip)}" }
 
     // 9) 중복 방지 (주 예약 + 보조 예약)
     val occ = Occurrence(main, Kind.MAIN, main)
@@ -124,9 +122,12 @@ fun runAll(): Int {
     val c = Planner.occurrences(w, s.copy(preLeadMinutes = 30, preIntervalMinutes = 10), RuntimeState(), SEOUL, t("2026-11-16T06:00"), t("2026-11-16T07:00"))
     check(list(c) == listOf("06:30P", "06:40P", "06:50P", "07:00M")) { "interval ${list(c)}" }
 
-    // 20) 주간 알림: 월 00:00
-    check(f(Planner.nextWeekly(s, SEOUL, t("2026-11-15T21:00"))) == "2026-11-16T00:00") { "weekly" }
-    check(f(Planner.nextWeekly(s, SEOUL, t("2026-11-16T00:00"))) == "2026-11-23T00:00") { "weekly exact" }
+    // 20) 알람 설정 요청 알림: 기본 일요일 22:00, 켜진 알람이 하나도 없을 때만
+    check(f(Planner.nextWeekly(s, SEOUL, t("2026-11-16T09:00"))) == "2026-11-22T22:00") { "remind" }
+    check(f(Planner.nextWeekly(s, SEOUL, t("2026-11-22T22:00"))) == "2026-11-29T22:00") { "remind exact" }
+    check(f(Planner.nextWeekly(s, SEOUL, t("2026-11-22T21:59"))) == "2026-11-22T22:00") { "remind same day" }
+    check(Planner.needsSetupReminder(List(7) { DayAlarm() })) { "remind when none" }
+    check(!Planner.needsSetupReminder(week(3 to "07:00"))) { "no remind when any on" }
 
     // 21) 일주일 내내 연속 시뮬레이션: 알람이 하나도 빠지지 않고 정확히 한 번씩 울리는지
     val full = week(1 to "07:00", 2 to "06:30", 3 to "06:30", 4 to "06:30", 5 to "06:30", 6 to "09:00", 7 to "00:30")

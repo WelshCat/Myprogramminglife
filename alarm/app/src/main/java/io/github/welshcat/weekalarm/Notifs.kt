@@ -44,8 +44,8 @@ object Notifs {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setBypassDnd(true)
         })
-        nm.createNotificationChannel(NotificationChannel(CH_WEEKLY, "새로운 한 주 알림", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "한 주가 시작될 때 이번 주 알람을 확인하라는 알림"
+        nm.createNotificationChannel(NotificationChannel(CH_WEEKLY, "알람 설정 요청", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "켜진 알람이 하나도 없을 때 알람을 설정하라는 알림"
         })
         nm.createNotificationChannel(NotificationChannel(CH_INFO, "놓친 알람 / 경고", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "놓친 알람, 권한 문제 등"
@@ -87,10 +87,6 @@ object Notifs {
             b.addAction(Notification.Action.Builder(null, "다시 알림 ${s.snoozeMinutes}분",
                 serviceAction(ctx, RingService.ACTION_SNOOZE, 21)).build())
         }
-        if (occ.kind == Kind.PRE && s.skipPreButton) {
-            b.addAction(Notification.Action.Builder(null, "남은 미리 알람 건너뛰기",
-                serviceAction(ctx, RingService.ACTION_SKIP_PRE, 22)).build())
-        }
         return b.build()
     }
 
@@ -116,15 +112,13 @@ object Notifs {
         }
     }
 
-    fun weekly(ctx: Context, week: List<DayAlarm>) {
+    /** 켜진 알람이 하나도 없을 때 보내는 "알람을 설정하세요" 알림. */
+    fun setupReminder(ctx: Context) {
         ensureChannels(ctx)
-        val summary = week.mapIndexed { i, d -> "${Fmt.DAYS[i]} ${if (d.enabled) Fmt.hm(d.hour, d.minute) else "끔"}" }
-            .joinToString("  ")
         post(ctx, ID_WEEKLY, Notification.Builder(ctx, CH_WEEKLY)
             .setSmallIcon(R.drawable.ic_stat_alarm)
-            .setContentTitle("새로운 한 주가 시작됐어요")
-            .setContentText("이번 주 알람을 확인하고 필요하면 바꿔 주세요")
-            .setStyle(Notification.BigTextStyle().bigText("이번 주 알람 (지난주와 같음)\n$summary\n\n눌러서 확인/변경"))
+            .setContentTitle("다음 주 알람을 설정해 주세요")
+            .setContentText("지금 켜져 있는 알람이 하나도 없어요. 눌러서 설정하세요.")
             .setContentIntent(mainScreen(ctx))
             .setAutoCancel(true)
             .build())

@@ -50,8 +50,6 @@ class SettingsActivity : Activity() {
             choiceRow("간격", listOf(5, 10, 15, 20, 30).filter { it <= cur.preLeadMinutes }, cur.preIntervalMinutes, { "${it}분마다" }) {
                 s = s.copy(preIntervalMinutes = it)
             }
-            switchRow("'남은 미리 알람 건너뛰기' 버튼", "미리 알람이 울릴 때 나머지 미리 알람을 건너뛰는 버튼 표시 (본 알람은 항상 울림)",
-                cur.skipPreButton) { s = s.copy(skipPreButton = it) }
         }
 
         section("다시 알림 (본 알람)")
@@ -77,8 +75,9 @@ class SettingsActivity : Activity() {
         switchRow("놓친 알람 늦게라도 울리기", "휴대폰이 꺼져 있었거나 시간이 바뀌어 놓친 본 알람을 60분 이내면 바로 울림",
             cur.lateRingEnabled) { s = s.copy(lateRingEnabled = it) }
 
-        section("새로운 한 주 알림")
-        switchRow("주간 확인 알림", "한 주가 시작될 때 이번 주 알람을 확인하라는 알림", cur.weeklyReminder) { s = s.copy(weeklyReminder = it) }
+        section("알람 설정 요청 알림")
+        switchRow("알람 설정 요청 알림", "켜진 알람이 하나도 없으면 정해진 시각에 '알람을 설정하세요' 알림 (하나라도 켜져 있으면 알림 없음)",
+            cur.weeklyReminder) { s = s.copy(weeklyReminder = it) }
         if (cur.weeklyReminder) {
             choiceRow("알림 요일", (1..7).toList(), cur.weeklyDay, { "${Fmt.DAYS[it - 1]}요일" }) { s = s.copy(weeklyDay = it) }
             choiceRow("알림 시각", (0..23).toList(), cur.weeklyHour, { Fmt.hm(it, 0) }) { s = s.copy(weeklyHour = it, weeklyMinute = 0) }
@@ -94,7 +93,7 @@ class SettingsActivity : Activity() {
             Scheduler.reschedule(this, "수동 재예약")
             Toast.makeText(this, "다시 예약했어요", Toast.LENGTH_SHORT).show()
         }
-        list.add(text("주간 알람 1.1", 12f, C.MUTED), top = 24)
+        list.add(text("주간 알람 1.2", 12f, C.MUTED), top = 24)
     }
 
     // ---------------- 행 만들기 ----------------

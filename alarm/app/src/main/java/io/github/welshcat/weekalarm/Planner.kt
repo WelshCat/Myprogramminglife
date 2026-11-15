@@ -26,7 +26,6 @@ data class Settings(
     val preEnabled: Boolean = true,
     val preLeadMinutes: Int = 60,          // 본 알람 몇 분 전부터
     val preIntervalMinutes: Int = 15,      // 몇 분 간격으로
-    val skipPreButton: Boolean = true,     // 울림 화면에 "남은 미리 알람 건너뛰기" 버튼
     // 다시 알림 (본 알람에만)
     val snoozeEnabled: Boolean = false,
     val snoozeMinutes: Int = 5,
@@ -40,16 +39,15 @@ data class Settings(
     val soundName: String? = null,
     // 안전장치
     val lateRingEnabled: Boolean = true,   // 놓친 알람을 늦게라도 울리기
-    // 주간 알림
+    // 알람 설정 요청 알림: 모든 요일이 꺼져 있으면 이 시각에 "알람을 설정하세요" 알림
     val weeklyReminder: Boolean = true,
-    val weeklyDay: Int = 1,                // 1=월 … 7=일
-    val weeklyHour: Int = 0,
+    val weeklyDay: Int = 7,                // 1=월 … 7=일 (기본: 일요일)
+    val weeklyHour: Int = 22,
     val weeklyMinute: Int = 0,
 )
 
 data class RuntimeState(
     val lastHandledAt: Long = 0L,
-    val skipPreForMainAt: Long = 0L,       // 이 본 알람의 남은 미리 알람은 건너뜀
     val snoozeAt: Long = 0L,
     val snoozeMainAt: Long = 0L,
     val snoozeCount: Int = 0,
@@ -100,7 +98,7 @@ object Planner {
         val all = ArrayList<Occurrence>()
         for (main in mainTimes(week, zone, fromExclusive, toInclusive + lead)) {
             all += Occurrence(main, Kind.MAIN, main)
-            if (usePre && main != st.skipPreForMainAt) {
+            if (usePre) {
                 var m = s.preIntervalMinutes
                 while (m <= s.preLeadMinutes) {
                     all += Occurrence(main - m * MINUTE, Kind.PRE, main, m)
@@ -161,7 +159,6 @@ object Planner {
         var s = st
         if (s.snoozeAt in 1..s.lastHandledAt) s = s.copy(snoozeAt = 0L, snoozeMainAt = 0L)
         if (s.testAt in 1..s.lastHandledAt) s = s.copy(testAt = 0L)
-        if (s.skipPreForMainAt in 1 until now - DAY) s = s.copy(skipPreForMainAt = 0L)
         return s
     }
 
@@ -198,7 +195,10 @@ object Planner {
         return st.snoozeMainAt in mainTimes(week, zone, st.snoozeMainAt, st.snoozeMainAt)
     }
 
-    /** 다음 주간 알림 시각. */
+    /** 알람 설정 요청 알림이 필요한지: 켜진 요일이 하나도 없을 때만. */
+    fun needsSetupReminder(week: List<DayAlarm>) = week.none { it.enabled }
+
+    /** 다음 알람 설정 요청 알림 시각 (기본: 일요일 22:00). */
     fun nextWeekly(s: Settings, zone: ZoneId, now: Long): Long {
         val nowZ = Instant.ofEpochMilli(now).atZone(zone)
         val dow = DayOfWeek.of(s.weeklyDay)

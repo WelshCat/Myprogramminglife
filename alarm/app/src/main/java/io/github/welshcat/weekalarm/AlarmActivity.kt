@@ -81,11 +81,6 @@ class AlarmActivity : Activity() {
                 RingService.action(this, RingService.ACTION_SNOOZE); finish()
             }, top = 20, side = 24)
         }
-        if (occ.kind == Kind.PRE && s.skipPreButton) {
-            root.add(button("남은 미리 알람 건너뛰기  (본 알람은 울림)", C.BTN, C.TEXT) {
-                RingService.action(this, RingService.ACTION_SKIP_PRE); finish()
-            }, top = 12, side = 24)
-        }
         root.add(View(this), h = dp(24))
         handler.removeCallbacks(tick)   // 새 알람으로 교체될 때 시계 갱신이 중복되지 않도록
         tick.run()

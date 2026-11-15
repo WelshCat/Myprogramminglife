@@ -45,7 +45,6 @@ object Store {
             preEnabled = p.getBoolean("preEnabled", d.preEnabled),
             preLeadMinutes = p.getInt("preLead", d.preLeadMinutes),
             preIntervalMinutes = p.getInt("preInterval", d.preIntervalMinutes),
-            skipPreButton = p.getBoolean("skipPreButton", d.skipPreButton),
             snoozeEnabled = p.getBoolean("snoozeEnabled", d.snoozeEnabled),
             snoozeMinutes = p.getInt("snoozeMinutes", d.snoozeMinutes),
             snoozeMaxCount = p.getInt("snoozeMax", d.snoozeMaxCount),
@@ -56,10 +55,10 @@ object Store {
             soundUri = p.getString("soundUri", null),
             soundName = p.getString("soundName", null),
             lateRingEnabled = p.getBoolean("lateRing", d.lateRingEnabled),
-            weeklyReminder = p.getBoolean("weekly", d.weeklyReminder),
-            weeklyDay = p.getInt("weeklyDay", d.weeklyDay),
-            weeklyHour = p.getInt("weeklyHour", d.weeklyHour),
-            weeklyMinute = p.getInt("weeklyMinute", d.weeklyMinute),
+            weeklyReminder = p.getBoolean("remind", d.weeklyReminder),
+            weeklyDay = p.getInt("remindDay", d.weeklyDay),
+            weeklyHour = p.getInt("remindHour", d.weeklyHour),
+            weeklyMinute = p.getInt("remindMinute", d.weeklyMinute),
         )
     }
 
@@ -67,13 +66,13 @@ object Store {
         val st = state(ctx).copy(lastHandledAt = Planner.watermarkOnSave(System.currentTimeMillis(), scheduledOccAt(ctx)))
         prefs(ctx).edit()
             .putBoolean("preEnabled", s.preEnabled).putInt("preLead", s.preLeadMinutes)
-            .putInt("preInterval", s.preIntervalMinutes).putBoolean("skipPreButton", s.skipPreButton)
+            .putInt("preInterval", s.preIntervalMinutes)
             .putBoolean("snoozeEnabled", s.snoozeEnabled).putInt("snoozeMinutes", s.snoozeMinutes)
             .putInt("snoozeMax", s.snoozeMaxCount).putInt("ringMinutes", s.ringMinutes)
             .putInt("volume", s.volumePercent).putBoolean("gradual", s.gradualVolume)
             .putBoolean("vibrate", s.vibrate).putString("soundUri", s.soundUri).putString("soundName", s.soundName)
-            .putBoolean("lateRing", s.lateRingEnabled).putBoolean("weekly", s.weeklyReminder)
-            .putInt("weeklyDay", s.weeklyDay).putInt("weeklyHour", s.weeklyHour).putInt("weeklyMinute", s.weeklyMinute)
+            .putBoolean("lateRing", s.lateRingEnabled).putBoolean("remind", s.weeklyReminder)
+            .putInt("remindDay", s.weeklyDay).putInt("remindHour", s.weeklyHour).putInt("remindMinute", s.weeklyMinute)
             .also { writeState(it, st) }
             .commit()
     }
@@ -83,7 +82,6 @@ object Store {
         val p = prefs(ctx)
         return RuntimeState(
             lastHandledAt = p.getLong("lastHandled", 0L),
-            skipPreForMainAt = p.getLong("skipPreFor", 0L),
             snoozeAt = p.getLong("snoozeAt", 0L),
             snoozeMainAt = p.getLong("snoozeMainAt", 0L),
             snoozeCount = p.getInt("snoozeCount", 0),
@@ -92,7 +90,7 @@ object Store {
     }
 
     private fun writeState(e: SharedPreferences.Editor, st: RuntimeState) {
-        e.putLong("lastHandled", st.lastHandledAt).putLong("skipPreFor", st.skipPreForMainAt)
+        e.putLong("lastHandled", st.lastHandledAt)
             .putLong("snoozeAt", st.snoozeAt).putLong("snoozeMainAt", st.snoozeMainAt)
             .putInt("snoozeCount", st.snoozeCount).putLong("testAt", st.testAt)
     }

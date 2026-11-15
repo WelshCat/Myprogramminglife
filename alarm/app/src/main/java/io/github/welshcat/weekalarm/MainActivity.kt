@@ -22,6 +22,8 @@ import android.widget.Toast
 class MainActivity : Activity() {
     private lateinit var nextCard: LinearLayout
     private lateinit var healthCard: LinearLayout
+    private lateinit var warnBanner: android.widget.TextView
+    private lateinit var scroll: ScrollView
     private lateinit var dayList: LinearLayout
     private val handler = Handler(Looper.getMainLooper())
 
@@ -39,8 +41,11 @@ class MainActivity : Activity() {
 
         nextCard = vertical(this, 16).apply { background = rounded(C.PANEL, 18) }
         root.add(nextCard, top = 16)
-        healthCard = vertical(this, 16).apply { background = rounded(C.PANEL, 18) }
-        root.add(healthCard, top = 12)
+        // 문제가 있을 때만 위에 짧게 표시 (자세한 내용과 해결 버튼은 화면 아래 점검 카드)
+        warnBanner = button("") { scroll.post { scroll.fullScroll(android.view.View.FOCUS_DOWN) } }.apply {
+            setTextColor(C.BG); background = pressable(C.ACCENT, 14); textSize = 14f
+        }
+        root.add(warnBanner, top = 12)
 
         root.add(text("요일별 알람", 14f, C.MUTED, bold = true), top = 22)
         dayList = vertical(this)
@@ -52,9 +57,12 @@ class MainActivity : Activity() {
             Toast.makeText(this, "1분 뒤에 테스트 알람이 울립니다. 화면을 꺼 두고 확인해 보세요.", Toast.LENGTH_LONG).show()
             refresh()
         }, top = 10)
-        root.add(text("※ 설정한 알람은 매주 같은 요일에 반복돼요. 새로운 한 주가 시작되면 확인 알림이 와요 (설정에서 변경).", 12f, C.MUTED), top = 14)
+        healthCard = vertical(this, 16).apply { background = rounded(C.PANEL, 18) }
+        root.add(healthCard, top = 22)
+        root.add(text("※ 설정한 알람은 매주 같은 요일에 반복돼요. 켜진 알람이 하나도 없으면 일요일 22:00에 설정 요청 알림이 와요 (설정에서 변경).", 12f, C.MUTED), top = 14)
 
-        setContentView(ScrollView(this).apply { addView(root); isFillViewport = true })
+        scroll = ScrollView(this).apply { addView(root); isFillViewport = true }
+        setContentView(scroll)
         root.padForSystemBars()
 
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -164,6 +172,8 @@ class MainActivity : Activity() {
     private fun refreshHealth() {
         healthCard.removeAllViews()
         val list = issues()
+        warnBanner.visibility = if (list.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
+        warnBanner.text = "⚠  확인이 필요한 항목 ${list.size}개  ·  눌러서 보기"
         if (list.isEmpty()) {
             healthCard.add(text("✓  알람이 정상적으로 예약되어 있어요", 15f, C.GREEN, bold = true))
         } else {

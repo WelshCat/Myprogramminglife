@@ -187,12 +187,17 @@ class SystemEventReceiver : BroadcastReceiver() {
     }
 }
 
-/** 주간 알림 (새로운 한 주). */
+/** 알람 설정 요청 알림 (기본: 일요일 22:00, 켜진 알람이 하나도 없을 때만 표시). */
 class WeeklyReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        Notifs.weekly(ctx, Store.week(ctx))
-        Store.log(ctx, "주간 알림 표시")
-        Scheduler.reschedule(ctx, "주간 알림")
+        val week = Store.week(ctx)
+        if (Planner.needsSetupReminder(week)) {
+            Notifs.setupReminder(ctx)
+            Store.log(ctx, "알람 설정 요청 알림 표시 (켜진 알람 없음)")
+        } else {
+            Store.log(ctx, "알람 설정 요청 알림 생략 (켜진 알람 있음)")
+        }
+        Scheduler.reschedule(ctx, "설정 요청 알림")
     }
 }
 

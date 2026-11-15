@@ -53,7 +53,8 @@ class RingService : Service() {
                         // startForegroundService 계약을 지키기 위해 잠깐 포그라운드로 올렸다가 바로 내린다
                         goForeground(Notifs.ringing(this, occ, Store.settings(this), Store.state(this)), occ, fallbackOnFail = false)
                         try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) {}
-                        Store.setRinging(this, null)
+                        // 기록된 '울리는 중' 알람이 다른 알람이면 지우지 않고, 아직 시간이 남았으면 다시 울린다
+                        Scheduler.resumeIfInterrupted(this)
                     }
                     stopIfIdle(); return START_NOT_STICKY
                 }
@@ -61,7 +62,6 @@ class RingService : Service() {
             }
             ACTION_DISMISS -> userDismiss()
             ACTION_SNOOZE -> userSnooze()
-            ACTION_SKIP_PRE -> userSkipPre()
             // 울리는 중인 알림을 사용자가 밀어서 지우면 다시 띄운다 (해제 수단이 사라지지 않도록)
             ACTION_REPOST -> current?.let { goForeground(Notifs.ringing(this, it, Store.settings(this), Store.state(this)), it) }
                 ?: stopIfIdle()
@@ -136,14 +136,6 @@ class RingService : Service() {
         Scheduler.reschedule(this, "다시 알림")
     }
 
-    private fun userSkipPre() {
-        val occ = current ?: return stopIfIdle()
-        Store.updateState(this) { st -> Unit to st.copy(skipPreForMainAt = occ.mainAt) }
-        Store.log(this, "남은 미리 알람 건너뛰기 (본 알람 ${Fmt.time(occ.mainAt)}은 울림)")
-        finishRinging()
-        Scheduler.reschedule(this, "미리 알람 건너뛰기")
-    }
-
     private fun onTimeout() {
         val occ = current ?: return stopIfIdle()
         val s = Store.settings(this)
@@ -190,7 +182,6 @@ class RingService : Service() {
         const val ACTION_RING = "io.github.welshcat.weekalarm.RING"
         const val ACTION_DISMISS = "io.github.welshcat.weekalarm.DISMISS"
         const val ACTION_SNOOZE = "io.github.welshcat.weekalarm.SNOOZE"
-        const val ACTION_SKIP_PRE = "io.github.welshcat.weekalarm.SKIP_PRE"
         const val ACTION_REPOST = "io.github.welshcat.weekalarm.REPOST"
 
         fun start(ctx: Context, occ: Occurrence) {
