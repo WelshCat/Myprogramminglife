@@ -147,6 +147,22 @@ class MainActivity : Activity() {
                         .putExtra(SysSettings.EXTRA_APP_PACKAGE, packageName)
                         .putExtra(SysSettings.EXTRA_CHANNEL_ID, Notifs.CH_RING_ID))
                 }
+            } else {
+                // 방해 금지 예외: 앱이 직접 켤 수 없어 사용자가 켜야 하는 항목 → 해당 화면으로 안내
+                val notExempt = listOf(Notifs.CH_RING_ID, Notifs.CH_FALLBACK_ID)
+                    .mapNotNull { nm.getNotificationChannel(it) }
+                    .filter { !it.canBypassDnd() }
+                if (notExempt.isNotEmpty()) {
+                    val first = notExempt.first()
+                    out += Issue("방해 금지 예외가 설정되지 않았어요. 켜 두면 방해 금지 중에도 알람 화면과 비상 알림이 확실히 표시돼요." +
+                        if (notExempt.size > 1) " ('${notExempt.joinToString("', '") { it.name }}' ${notExempt.size}개 항목)" else "",
+                        "설정 열기") {
+                        Toast.makeText(this, "'${first.name}' 화면에서 '방해 금지 모드 무시'(방해 금지 중 알림 허용)를 켜 주세요", Toast.LENGTH_LONG).show()
+                        startSafe(Intent(SysSettings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                            .putExtra(SysSettings.EXTRA_APP_PACKAGE, packageName)
+                            .putExtra(SysSettings.EXTRA_CHANNEL_ID, first.id))
+                    }
+                }
             }
         }
         if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {

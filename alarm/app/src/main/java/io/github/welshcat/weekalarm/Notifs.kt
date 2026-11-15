@@ -161,6 +161,7 @@ object Notifs {
     }
 
     const val CH_RING_ID = CH_RING
+    const val CH_FALLBACK_ID = CH_FALLBACK
     const val ACTION_FALLBACK_CLEARED = "io.github.welshcat.weekalarm.FALLBACK_CLEARED"
 
     fun cancel(ctx: Context, id: Int) { try { nm(ctx).cancel(id) } catch (_: Exception) {} }
