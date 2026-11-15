@@ -103,6 +103,9 @@ object Notifs {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setFullScreenIntent(mainScreen(ctx), true)
                 .setContentIntent(mainScreen(ctx))
+                .setDeleteIntent(PendingIntent.getBroadcast(ctx, 30,
+                    Intent(ctx, SystemEventReceiver::class.java).setAction(ACTION_FALLBACK_CLEARED),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
                 .setAutoCancel(true)
                 .build()
             n.flags = n.flags or Notification.FLAG_INSISTENT
@@ -154,6 +157,7 @@ object Notifs {
     }
 
     const val CH_RING_ID = CH_RING
+    const val ACTION_FALLBACK_CLEARED = "io.github.welshcat.weekalarm.FALLBACK_CLEARED"
 
     fun cancel(ctx: Context, id: Int) { try { nm(ctx).cancel(id) } catch (_: Exception) {} }
 }

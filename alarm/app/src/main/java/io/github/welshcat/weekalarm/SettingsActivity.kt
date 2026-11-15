@@ -93,7 +93,7 @@ class SettingsActivity : Activity() {
             Scheduler.reschedule(this, "수동 재예약")
             Toast.makeText(this, "다시 예약했어요", Toast.LENGTH_SHORT).show()
         }
-        list.add(text("주간 알람 1.2", 12f, C.MUTED), top = 24)
+        list.add(text("주간 알람 1.3", 12f, C.MUTED), top = 24)
     }
 
     // ---------------- 행 만들기 ----------------

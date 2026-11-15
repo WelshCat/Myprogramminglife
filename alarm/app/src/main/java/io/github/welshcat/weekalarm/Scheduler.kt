@@ -68,7 +68,8 @@ object Scheduler {
 
     private fun setAlarm(ctx: Context, occ: Occurrence, fireAt: Long, late: Boolean) {
         val am = ctx.getSystemService(AlarmManager::class.java)
-        val main = pi(ctx, RC_MAIN, fireIntent(ctx, occ, false).putExtra("late", late))
+        val decidedAt = fireAt - 1000
+        val main = pi(ctx, RC_MAIN, fireIntent(ctx, occ, false).putExtra("late", late).putExtra("decidedAt", decidedAt))
         val show = PendingIntent.getActivity(ctx, RC_SHOW, Intent(ctx, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         // 1차: 알람 시계 예약 (가장 강력함: 절전 모드 무시, 정확한 시각)
@@ -85,7 +86,7 @@ object Scheduler {
         }
         // 2차: 보조 예약 (1차가 어떤 이유로 사라져도 1분 뒤 울림. 1차가 울렸으면 중복으로 무시됨)
         // 정확한 알람이어야 안드로이드 12+에서 울림 서비스를 시작할 수 있다
-        val backup = pi(ctx, RC_BACKUP, fireIntent(ctx, occ, true).putExtra("late", late))
+        val backup = pi(ctx, RC_BACKUP, fireIntent(ctx, occ, true).putExtra("late", late).putExtra("decidedAt", decidedAt))
         try {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt + BACKUP_DELAY, backup)
         } catch (e: Exception) {
@@ -143,6 +144,12 @@ object Scheduler {
         }
     }
 
+    /** 이 앱의 다음 알람이 시스템에 등록돼 있는지 (다른 앱 알람과 무관하게). */
+    fun isArmed(ctx: Context): Boolean {
+        val i = Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_FIRE)
+        return PendingIntent.getBroadcast(ctx, RC_MAIN, i, PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE) != null
+    }
+
     /** 1분 뒤 테스트 알람. */
     fun scheduleTest(ctx: Context) {
         val at = System.currentTimeMillis() + 60_000L
@@ -167,7 +174,8 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
         val ring = try {
-            Store.updateState(ctx) { st -> Planner.onFired(occ, st, late, System.currentTimeMillis()) }
+            val decidedAt = intent.getLongExtra("decidedAt", occ.at)
+            Store.updateState(ctx) { st -> Planner.onFired(occ, st, late, minOf(decidedAt, System.currentTimeMillis())) }
         } catch (e: Exception) {
             Store.log(ctx, "상태 저장 오류: $e"); true       // 의심스러우면 울린다
         }

@@ -11,8 +11,8 @@ android {
         applicationId = "io.github.welshcat.weekalarm"
         minSdk = 26          // Android 8.0 이상
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
     // 직접 설치(사이드로드)용 고정 서명 키 — 업데이트를 덮어서 설치할 수 있도록 항상 같은 키로 서명한다.

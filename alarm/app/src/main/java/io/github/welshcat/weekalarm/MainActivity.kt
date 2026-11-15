@@ -161,7 +161,12 @@ class MainActivity : Activity() {
         val ours = Store.scheduledAt(this)
         if (ours > System.currentTimeMillis()) {
             val sys = am.nextAlarmClock
-            val missing = sys == null || sys.triggerTime > ours
+            val sysIsOurs = sys?.showIntent?.creatorPackage == packageName
+            val missing = when {
+                sys == null || sys.triggerTime > ours -> true          // 시스템 다음 알람이 없거나 우리 것보다 늦음
+                sysIsOurs -> sys.triggerTime != ours                    // 우리 알람이 맨 앞: 시각까지 일치해야 함
+                else -> !Scheduler.isArmed(this)                        // 다른 앱 알람이 먼저: 우리 예약이 있는지 직접 확인
+            }
             if (missing) out += Issue("알람이 시스템에 예약되어 있지 않아요.", "다시 예약") {
                 Scheduler.reschedule(this, "수동 재예약"); refresh()
             }

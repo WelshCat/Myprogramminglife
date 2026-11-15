@@ -195,7 +195,13 @@ fun runAll(): Int {
     }
     check(rang26 == rang) { "race sim ${rang26.size} vs ${rang.size}: ${rang26.take(5)}" }
 
-    println(if (fails == 0) "ALL PASSED (26 scenarios, week sim ${rang.size} alarms)" else "$fails FAILED")
+    // 27) 늦은 알람(06:55 미리 알람, 06:59:10에 결정)이 07:00:11에야 도착해도 07:00 본 알람은 살아 있어야 함
+    val pre655 = Occurrence(t("2026-11-16T06:55"), Kind.PRE, main, 5)
+    val (r27, st27) = Planner.onFired(pre655, RuntimeState(lastHandledAt = pre655.at - 1), late = true, now = t("2026-11-16T06:59:10"))
+    val (r27b, _) = Planner.onFired(occ, st27)
+    check(r27 && r27b) { "late delivery must not swallow main" }
+
+    println(if (fails == 0) "ALL PASSED (27 scenarios, week sim ${rang.size} alarms)" else "$fails FAILED")
     return fails
 }
 

@@ -50,9 +50,11 @@ class RingService : Service() {
                 }
                 if (occ == null || stale) {
                     if (stale && occ != null) {
-                        // startForegroundService 계약을 지키기 위해 잠깐 포그라운드로 올렸다가 바로 내린다
-                        goForeground(Notifs.ringing(this, occ, Store.settings(this), Store.state(this)), occ, fallbackOnFail = false)
-                        try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) {}
+                        if (current == null) {
+                            // startForegroundService 계약을 지키기 위해 잠깐 포그라운드로 올렸다가 바로 내린다
+                            goForeground(Notifs.ringing(this, occ, Store.settings(this), Store.state(this)), occ, fallbackOnFail = false)
+                            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) {}
+                        }
                         // 기록된 '울리는 중' 알람이 다른 알람이면 지우지 않고, 아직 시간이 남았으면 다시 울린다
                         Scheduler.resumeIfInterrupted(this)
                     }
@@ -75,7 +77,11 @@ class RingService : Service() {
         val s = Store.settings(this)
         // 1) 즉시 포그라운드로 (전체 화면 알람 알림 포함)
         goForeground(Notifs.ringing(this, occ, s, Store.state(this)), occ)
-        Store.setRinging(this, occ)
+        // 같은 알람을 다시 울리는 경우(중단 후 재개)에는 처음 시작 시각을 유지한다 → 울림 시간이 무한히 늘어나지 않음
+        val now = System.currentTimeMillis()
+        val prev = Store.ringing(this)
+        val startedAt = if (prev != null && prev.first == occ && prev.second in (now - 60 * 60_000L)..now) prev.second else now
+        Store.setRinging(this, occ, startedAt)
         WakeLocks.releaseStartup()
         try {
             // 새 알람으로 교체될 때도 매번 시간을 연장한다
@@ -96,7 +102,8 @@ class RingService : Service() {
             }
         }
         // 3) 끄지 않으면 정해진 시간 뒤 멈춤
-        handler.postDelayed(timeout, s.ringMinutes.coerceAtLeast(1) * 60_000L)
+        val remaining = s.ringMinutes.coerceAtLeast(1) * 60_000L - (now - startedAt)
+        handler.postDelayed(timeout, remaining.coerceAtLeast(60_000L))
     }
 
     private fun goForeground(n: Notification, occ: Occurrence, fallbackOnFail: Boolean = true) {
