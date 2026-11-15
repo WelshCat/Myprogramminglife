@@ -41,7 +41,6 @@ class Ringer(private val ctx: Context) {
 
     fun start(s: Settings, previewOnly: Boolean = false) {
         stopped = false
-        if (!previewOnly) Dnd.overrideIfNeeded(ctx, s)   // 방해 금지 모드가 막고 있으면 울리는 동안만 해제
         raiseVolume(s.volumePercent)
         requestFocus()
         candidates = ArrayDeque(listOfNotNull(
@@ -180,7 +179,6 @@ class Ringer(private val ctx: Context) {
         }
 
         fun restoreVolumeIfNeeded(ctx: Context) {
-            Dnd.restoreIfNeeded(ctx)
             val orig = Store.savedAlarmVolume(ctx)
             if (orig < 0 || RingState.current != null) return
             try { ctx.getSystemService(AudioManager::class.java).setStreamVolume(AudioManager.STREAM_ALARM, orig, 0) }

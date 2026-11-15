@@ -152,10 +152,10 @@ class MainActivity : Activity() {
                 startSafe(Intent(SysSettings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
             }
         }
-        if (Store.settings(this).dndOverride && !Dnd.accessGranted(this)) {
-            out += Issue("방해 금지 모드 접근 권한이 없어요. 방해 금지 모드가 알람을 막고 있으면 소리가 안 나요.", "허용") {
-                Toast.makeText(this, "목록에서 '주간 알람'을 찾아 허용해 주세요", Toast.LENGTH_LONG).show()
-                startSafe(Intent(SysSettings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+        if (dndBlocksAlarms(nm)) {
+            out += Issue("[중요] 방해 금지 설정에서 '알람'이 허용되어 있지 않아요. 방해 금지 중에는 알람이 울리지 않아요.", "설정 열기") {
+                Toast.makeText(this, "방해 금지 › 허용할 항목(예외)에서 '알람'을 켜 주세요", Toast.LENGTH_LONG).show()
+                startSafe(Intent("android.settings.ZEN_MODE_SETTINGS"))
             }
         }
         if (!pm.isIgnoringBatteryOptimizations(packageName)) {
@@ -180,6 +180,13 @@ class MainActivity : Activity() {
         }
         return out
     }
+
+    /** 방해 금지 설정이 알람 소리를 막는지: 지금 '완전 무음'이거나, 중요 알림 모드에서 '알람'이 허용 안 됨. */
+    private fun dndBlocksAlarms(nm: NotificationManager): Boolean = try {
+        val alarmsAllowed = Build.VERSION.SDK_INT < 28 ||
+            (nm.notificationPolicy.priorityCategories and NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS) != 0
+        nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_NONE || !alarmsAllowed
+    } catch (_: Exception) { false }
 
     private fun refreshHealth() {
         healthCard.removeAllViews()

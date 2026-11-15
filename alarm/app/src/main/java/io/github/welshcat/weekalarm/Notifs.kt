@@ -93,7 +93,6 @@ object Notifs {
     /** 비상 알림: 알림 자체가 알람음을 끝없이 반복한다 (FLAG_INSISTENT). */
     fun fallback(ctx: Context, occ: Occurrence) {
         try {
-            Dnd.overrideIfNeeded(ctx, Store.settings(ctx))
             Ringer.raiseVolumeStatic(ctx, Store.settings(ctx).volumePercent)
             ensureChannels(ctx)
             val n = Notification.Builder(ctx, CH_FALLBACK)

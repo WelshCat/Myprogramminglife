@@ -10,9 +10,7 @@ android {
     defaultConfig {
         applicationId = "io.github.welshcat.weekalarm"
         minSdk = 26          // Android 8.0 이상
-        // 34: 안드로이드 15+에서 targetSdk 35 앱은 전역 방해 금지 모드를 바꿀 수 없어서,
-        // '방해 금지 모드에서도 울리기'를 위해 34로 유지한다 (직접 설치용 앱이라 스토어 요구사항 무관).
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 6
         versionName = "1.5"
     }
