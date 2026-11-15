@@ -93,7 +93,7 @@ class SettingsActivity : Activity() {
             Scheduler.reschedule(this, "수동 재예약")
             Toast.makeText(this, "다시 예약했어요", Toast.LENGTH_SHORT).show()
         }
-        list.add(text("주간 알람 1.3", 12f, C.MUTED), top = 24)
+        list.add(text("주간 알람 1.4", 12f, C.MUTED), top = 24)
     }
 
     // ---------------- 행 만들기 ----------------
@@ -231,15 +231,17 @@ class SettingsActivity : Activity() {
         return target
     }
 
+    private val previewStopper = Runnable { stopPreview() }
+
     private fun playPreview() {
         stopPreview()
         if (RingState.current != null) return
         preview = Ringer(this).also { it.start(s.copy(gradualVolume = false, vibrate = false), previewOnly = true) }
-        handler.postDelayed({ stopPreview() }, 5000)
+        handler.postDelayed(previewStopper, 5000)
     }
 
     private fun stopPreview() {
-        handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacks(previewStopper)
         preview?.stop(); preview = null
     }
 

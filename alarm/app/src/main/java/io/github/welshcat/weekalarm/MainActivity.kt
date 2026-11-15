@@ -79,6 +79,7 @@ class MainActivity : Activity() {
         if (RingState.current != null) {
             startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
+        else Notifs.cancel(this, Notifs.ID_FALLBACK)   // 비상 알림(반복 알람음)이 울리는 중이면 앱을 여는 것으로 끈다
         Ringer.restoreVolumeIfNeeded(this)
         Scheduler.reschedule(this, "앱 열기")
         refresh()
@@ -223,7 +224,7 @@ class MainActivity : Activity() {
             left.add(text("${Fmt.DAYS[i]}요일", 14f, if (i >= 5) C.ACCENT else C.MUTED, bold = true))
             left.add(text(Fmt.hm(d.hour, d.minute), 30f, if (d.enabled) C.TEXT else C.MUTED, bold = d.enabled))
             val sub = if (!d.enabled) "꺼짐" else if (s.preEnabled) {
-                val t = ((d.hour * 60 + d.minute - s.preLeadMinutes) % 1440 + 1440) % 1440
+                val t = ((d.hour * 60 + d.minute - Planner.firstPreMinutes(s)) % 1440 + 1440) % 1440
                 "${Fmt.hm(t / 60, t % 60)}부터 ${s.preIntervalMinutes}분마다 미리 알람"
             } else "미리 알람 없음"
             left.add(text(sub, 12f, C.MUTED))

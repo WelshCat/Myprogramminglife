@@ -195,6 +195,10 @@ object Planner {
         return st.snoozeMainAt in mainTimes(week, zone, st.snoozeMainAt, st.snoozeMainAt)
     }
 
+    /** 실제로 첫 미리 알람이 울리는 시점 (본 알람 몇 분 전). 간격의 배수로 맞춰진다. */
+    fun firstPreMinutes(s: Settings): Int =
+        if (s.preIntervalMinutes <= 0) 0 else (s.preLeadMinutes / s.preIntervalMinutes) * s.preIntervalMinutes
+
     /** 알람 설정 요청 알림이 필요한지: 켜진 요일이 하나도 없을 때만. */
     fun needsSetupReminder(week: List<DayAlarm>) = week.none { it.enabled }
 

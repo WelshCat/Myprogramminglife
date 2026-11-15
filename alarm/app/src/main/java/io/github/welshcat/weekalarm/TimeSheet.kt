@@ -135,7 +135,7 @@ class TimeSheet(
         preview.setTextColor(C.MUTED)
         val t = hourPicker.value * 60 + minutePicker.value
         preview.text = if (s.preEnabled) {
-            val st = ((t - s.preLeadMinutes) % 1440 + 1440) % 1440
+            val st = ((t - Planner.firstPreMinutes(s)) % 1440 + 1440) % 1440
             "미리 알람: ${Fmt.hm(st / 60, st % 60)}부터 ${s.preIntervalMinutes}분마다"
         } else "미리 알람 꺼짐"
     }
