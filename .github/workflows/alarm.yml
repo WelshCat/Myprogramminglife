@@ -20,6 +20,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build APK
         run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease lint
+      - name: Show lint results
+        if: always()
+        run: cat app/stdout 2>/dev/null || cat app/build/reports/lint-results-debug.txt 2>/dev/null || echo "no lint text report"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
