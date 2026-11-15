@@ -29,8 +29,9 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.decorView.setBackgroundColor(C.BG)
         list = vertical(this, 16)
-        setContentView(ScrollView(this).apply { addView(list) })
-        list.padForSystemBars()
+        val scroll = ScrollView(this).apply { addView(list); clipToPadding = false }
+        setContentView(scroll)
+        scroll.padForSystemBars()
         build()
     }
 
@@ -44,10 +45,11 @@ class SettingsActivity : Activity() {
         section("미리 알람")
         switchRow("미리 알람 사용", "본 알람 전부터 일정 간격으로 울림", cur.preEnabled) { s = s.copy(preEnabled = it) }
         if (cur.preEnabled) {
-            choiceRow("시작 시점", listOf(30, 60, 90, 120), cur.preLeadMinutes, { "${Fmt.duration(it * 60_000L)} 전부터" }) {
-                s = s.copy(preLeadMinutes = it, preIntervalMinutes = minOf(s.preIntervalMinutes, it))
+            choiceRow("시작 시점", listOf(30, 60, 90, 120), cur.preLeadMinutes, { "${Fmt.duration(it * 60_000L)} 전부터" }) { lead ->
+                val iv = INTERVALS.filter { lead % it == 0 && it <= s.preIntervalMinutes }.maxOrNull() ?: 5
+                s = s.copy(preLeadMinutes = lead, preIntervalMinutes = iv)
             }
-            choiceRow("간격", listOf(5, 10, 15, 20, 30).filter { it <= cur.preLeadMinutes }, cur.preIntervalMinutes, { "${it}분마다" }) {
+            choiceRow("간격", INTERVALS.filter { cur.preLeadMinutes % it == 0 }, cur.preIntervalMinutes, { "${it}분마다" }) {
                 s = s.copy(preIntervalMinutes = it)
             }
         }
@@ -93,7 +95,7 @@ class SettingsActivity : Activity() {
             Scheduler.reschedule(this, "수동 재예약")
             Toast.makeText(this, "다시 예약했어요", Toast.LENGTH_SHORT).show()
         }
-        list.add(text("주간 알람 1.5", 12f, C.MUTED), top = 24)
+        list.add(text("주간 알람 1.6", 12f, C.MUTED), top = 24)
     }
 
     // ---------------- 행 만들기 ----------------
@@ -248,6 +250,7 @@ class SettingsActivity : Activity() {
     }
 
     companion object {
+        private val INTERVALS = listOf(5, 10, 15, 20, 30)
         private const val RC_RINGTONE = 1
         private const val RC_FILE = 2
     }

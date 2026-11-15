@@ -93,6 +93,7 @@ object Notifs {
     /** 비상 알림: 알림 자체가 알람음을 끝없이 반복한다 (FLAG_INSISTENT). */
     fun fallback(ctx: Context, occ: Occurrence) {
         try {
+            val ringMs = Store.settings(ctx).ringMinutes.coerceAtLeast(1) * 60_000L
             Ringer.raiseVolumeStatic(ctx, Store.settings(ctx).volumePercent)
             ensureChannels(ctx)
             val n = Notification.Builder(ctx, CH_FALLBACK)
@@ -107,9 +108,12 @@ object Notifs {
                     Intent(ctx, SystemEventReceiver::class.java).setAction(ACTION_FALLBACK_CLEARED),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
                 .setAutoCancel(true)
+                .setTimeoutAfter(ringMs)                // 울림 시간이 지나면 자동으로 멈춤
                 .build()
             n.flags = n.flags or Notification.FLAG_INSISTENT
             nm(ctx).notify(ID_FALLBACK, n)
+            // 시간 초과로 사라질 때도 알람 음량을 원래대로 (사용자가 지우지 않아도)
+            Scheduler.scheduleFallbackCleanup(ctx, System.currentTimeMillis() + ringMs + 5_000L)
         } catch (e: Exception) {
             Store.log(ctx, "비상 알림 실패: $e")
         }

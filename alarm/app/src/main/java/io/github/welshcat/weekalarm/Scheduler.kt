@@ -26,6 +26,7 @@ object Scheduler {
     private const val RC_WEEKLY = 3
     private const val RC_SHOW = 4
     private const val RC_RESUME = 5
+    private const val RC_FALLBACK_CLEANUP = 6
     private const val GUARD_JOB_ID = 77
     private const val BACKUP_DELAY = 60_000L   // 보조 예약: 원래 시각 + 1분
 
@@ -105,7 +106,10 @@ object Scheduler {
         val am = ctx.getSystemService(AlarmManager::class.java)
         val p = pi(ctx, RC_WEEKLY, Intent(ctx, WeeklyReceiver::class.java).setAction(ACTION_WEEKLY))
         if (!s.weeklyReminder) { am.cancel(p); return }
-        val at = Planner.nextWeekly(s, ZoneId.systemDefault(), now)
+        // 이미 시각이 됐는데 아직 도착 처리가 안 된 알림은 다음 주로 넘기지 않고 그대로 둔다
+        val pending = Store.remindAt(ctx)
+        val at = if (pending in (now - 6 * 3_600_000L)..now) pending else Planner.nextWeekly(s, ZoneId.systemDefault(), now)
+        Store.setRemindAt(ctx, at)
         try { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p) }
         catch (e: Exception) { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p) }
     }
@@ -144,6 +148,15 @@ object Scheduler {
         }
     }
 
+    /** 비상 알림이 시간 초과로 사라진 뒤 알람 음량 복원. */
+    fun scheduleFallbackCleanup(ctx: Context, at: Long) {
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        val p = pi(ctx, RC_FALLBACK_CLEANUP,
+            Intent(ctx, SystemEventReceiver::class.java).setAction(Notifs.ACTION_FALLBACK_CLEARED))
+        try { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p) }
+        catch (e: Exception) { try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, p) } catch (_: Exception) {} }
+    }
+
     /** 이 앱의 다음 알람이 시스템에 등록돼 있는지 (다른 앱 알람과 무관하게). */
     fun isArmed(ctx: Context): Boolean {
         val i = Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_FIRE)
@@ -173,6 +186,14 @@ class AlarmReceiver : BroadcastReceiver() {
             else WakeLocks.releaseStartup()
             return
         }
+        val now = System.currentTimeMillis()
+        if (!late && now - occ.at > Planner.DELIVERY_SLACK) {
+            // 예정보다 10분 넘게 늦게 도착 (시계를 앞으로 돌림 등): 놓친 알람 규칙(본 알람 60분 이내만 울림)을 적용
+            Store.log(ctx, "오래된 알람 도착: ${Fmt.dateTime(occ.at)} → 놓친 알람 규칙으로 판단")
+            Scheduler.reschedule(ctx, "늦게 도착한 알람")
+            WakeLocks.releaseStartup()
+            return
+        }
         val ring = try {
             val decidedAt = intent.getLongExtra("decidedAt", occ.at)
             Store.updateState(ctx) { st -> Planner.onFired(occ, st, late, minOf(decidedAt, System.currentTimeMillis())) }
@@ -198,6 +219,7 @@ class SystemEventReceiver : BroadcastReceiver() {
 /** 알람 설정 요청 알림 (기본: 일요일 22:00, 켜진 알람이 하나도 없을 때만 표시). */
 class WeeklyReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
+        Store.setRemindAt(ctx, 0L)   // 도착 처리됨 → 다음 주로 예약해도 됨
         val week = Store.week(ctx)
         if (Planner.needsSetupReminder(week)) {
             Notifs.setupReminder(ctx)
@@ -272,7 +294,7 @@ object Fmt {
         return buildString {
             if (d > 0) append("${d}일 ")
             if (h > 0) append("${h}시간 ")
-            append("${m}분")
+            if (m > 0 || (d == 0L && h == 0L)) append("${m}분")
         }.trim()
     }
     fun isSdk(v: Int) = Build.VERSION.SDK_INT >= v

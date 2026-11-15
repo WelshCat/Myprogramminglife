@@ -85,8 +85,9 @@ class TimeSheet(
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (days.isEmpty()) { preview.text = "적용할 요일을 하나 이상 고르세요"; preview.setTextColor(C.RED); return@setOnClickListener }
                 // 휠이 아직 돌고 있으면 멈출 때까지 기다렸다가 최종 값으로 저장
+                val deadline = System.currentTimeMillis() + 1500
                 fun save() {
-                    if (scrolling > 0) { hourPicker.postDelayed({ save() }, 100); return }
+                    if (scrolling > 0 && System.currentTimeMillis() < deadline) { hourPicker.postDelayed({ save() }, 100); return }
                     onSave(hourPicker.value, minutePicker.value, days.toSet())
                     dialog.dismiss()
                 }

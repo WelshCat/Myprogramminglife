@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var healthCard: LinearLayout
     private lateinit var warnBanner: android.widget.TextView
     private lateinit var scroll: ScrollView
+    private lateinit var footnote: android.widget.TextView
     private lateinit var dayList: LinearLayout
     private val handler = Handler(Looper.getMainLooper())
 
@@ -59,11 +60,12 @@ class MainActivity : Activity() {
         }, top = 10)
         healthCard = vertical(this, 16).apply { background = rounded(C.PANEL, 18) }
         root.add(healthCard, top = 22)
-        root.add(text("※ 설정한 알람은 매주 같은 요일에 반복돼요. 켜진 알람이 하나도 없으면 일요일 22:00에 설정 요청 알림이 와요 (설정에서 변경).", 12f, C.MUTED), top = 14)
+        footnote = text("", 12f, C.MUTED)
+        root.add(footnote, top = 14)
 
-        scroll = ScrollView(this).apply { addView(root); isFillViewport = true }
+        scroll = ScrollView(this).apply { addView(root); isFillViewport = true; clipToPadding = false }
         setContentView(scroll)
-        root.padForSystemBars()
+        scroll.padForSystemBars()
 
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
@@ -96,7 +98,12 @@ class MainActivity : Activity() {
         refresh()
     }
 
-    private fun refresh() { refreshNext(); refreshHealth(); refreshDays() }
+    private fun refresh() {
+        refreshNext(); refreshHealth(); refreshDays()
+        val s = Store.settings(this)
+        footnote.text = "※ 설정한 알람은 매주 같은 요일에 반복돼요." + if (s.weeklyReminder)
+            " 켜진 알람이 하나도 없으면 ${Fmt.DAYS[s.weeklyDay - 1]}요일 ${Fmt.hm(s.weeklyHour, s.weeklyMinute)}에 설정 요청 알림이 와요." else ""
+    }
 
     // ---------------- 다음 알람 ----------------
     private fun refreshNext() {

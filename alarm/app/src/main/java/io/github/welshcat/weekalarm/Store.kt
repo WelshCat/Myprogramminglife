@@ -63,7 +63,8 @@ object Store {
     }
 
     fun saveSettings(ctx: Context, s: Settings) = synchronized(lock) {
-        val st = state(ctx).copy(lastHandledAt = Planner.watermarkOnSave(System.currentTimeMillis(), scheduledOccAt(ctx)))
+        var st = state(ctx).copy(lastHandledAt = Planner.watermarkOnSave(System.currentTimeMillis(), scheduledOccAt(ctx)))
+        if (!s.snoozeEnabled) st = st.copy(snoozeAt = 0L, snoozeMainAt = 0L, snoozeCount = 0)
         prefs(ctx).edit()
             .putBoolean("preEnabled", s.preEnabled).putInt("preLead", s.preLeadMinutes)
             .putInt("preInterval", s.preIntervalMinutes)
@@ -126,6 +127,10 @@ object Store {
             .putInt("ringBefore", occ.minutesBefore).putLong("ringStarted", startedAt)
         e.commit()
     }
+
+    // ---------------- 설정 요청 알림 예약 시각 ----------------
+    fun remindAt(ctx: Context) = prefs(ctx).getLong("remindAt", 0L)
+    fun setRemindAt(ctx: Context, at: Long) { prefs(ctx).edit().putLong("remindAt", at).commit() }
 
     // ---------------- 알람 음량 복원용 ----------------
     fun savedAlarmVolume(ctx: Context) = prefs(ctx).getInt("origVolume", -1)
