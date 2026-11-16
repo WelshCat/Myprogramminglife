@@ -72,8 +72,8 @@ class Ringer(private val ctx: Context) {
         releasePlayer()
         val uri = candidates.removeFirstOrNull()
         if (uri == null) { playBeep(); return }
+        val mp = MediaPlayer()
         try {
-            val mp = MediaPlayer()
             mp.setAudioAttributes(attrs)
             mp.setDataSource(ctx, uri)
             mp.isLooping = true
@@ -94,6 +94,8 @@ class Ringer(private val ctx: Context) {
                 }
             }, 2000)
         } catch (e: Exception) {
+            try { mp.release() } catch (_: Exception) {}
+            if (player === mp) player = null
             Store.log(ctx, "알람음 열기 실패($uri): ${e.javaClass.simpleName} → 다른 소리로 전환")
             playNext()
         }
